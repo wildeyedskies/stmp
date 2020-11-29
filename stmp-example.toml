@@ -1,0 +1,6 @@
+[auth]
+username = 'admin'
+password = 'password'
+
+[server]
+host = 'https://your-subsonic-host.tld'

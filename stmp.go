@@ -31,14 +31,28 @@ func readConfig() {
 func main() {
 	readConfig()
 
-	username := viper.GetString("auth.username")
-	password := viper.GetString("auth.password")
-	host := viper.GetString("server.host")
+	connection := &SubsonicConnection{
+		Username: viper.GetString("auth.username"),
+		Password: viper.GetString("auth.password"),
+		Host:     viper.GetString("server.host"),
+	}
+
+	response, _ := connection.GetIndexes()
+	InitGui(&response.Indexes.Index)
 
 	//response, _ := GetServerInfo(username, password, host)
 	//fmt.Printf("%s \n", response.Status)
 
-	response, err := GetMusicDirectory(username, password, host, "al-520")
-	fmt.Printf("%s\n", err)
-	fmt.Printf("%v\n", response)
+	//response, err := connection.GetMusicDirectory("al-523")
+	//songUrl := connection.GetPlayUrl(&response.Directory.Entities[0])
+
+	//mpvInstance, mpvEvents, err := InitMpv()
+
+	/*if err != nil {
+		fmt.Println(err)
+	}*/
+
+	//LoadFile(mpvInstance, songUrl)
+	//WaitForPlayerComplete(mpvEvents)
+	//mpvInstance.TerminateDestroy()
 }

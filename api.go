@@ -13,6 +13,12 @@ import (
 // used for generating salt
 var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
+type SubsonicConnection struct {
+	Username string
+	Password string
+	Host     string
+}
+
 func randSeq(n int) string {
 	b := make([]rune, n)
 	for i := range b {
@@ -28,10 +34,10 @@ func authToken(password string) (string, string) {
 	return token, salt
 }
 
-func defaultQuery(username string, password string, host string) url.Values {
-	token, salt := authToken(password)
+func defaultQuery(connection *SubsonicConnection) url.Values {
+	token, salt := authToken(connection.Password)
 	query := url.Values{}
-	query.Set("u", username)
+	query.Set("u", connection.Username)
 	query.Set("t", token)
 	query.Set("s", salt)
 	query.Set("v", "1.15.1")
@@ -93,10 +99,10 @@ type responseWrapper struct {
 }
 
 // requests
-func GetServerInfo(username string, password string, host string) (*SubsonicResponse, error) {
-	query := defaultQuery(username, password, host)
-	request_url := host + "/rest/ping" + "?" + query.Encode()
-	res, err := http.Get(request_url)
+func (connection *SubsonicConnection) GetServerInfo() (*SubsonicResponse, error) {
+	query := defaultQuery(connection)
+	requestUrl := connection.Host + "/rest/ping" + "?" + query.Encode()
+	res, err := http.Get(requestUrl)
 
 	if err != nil {
 		return nil, err
@@ -122,10 +128,10 @@ func GetServerInfo(username string, password string, host string) (*SubsonicResp
 	return &decodedBody.Response, nil
 }
 
-func GetIndexes(username string, password string, host string) (*SubsonicResponse, error) {
-	query := defaultQuery(username, password, host)
-	request_url := host + "/rest/getIndexes" + "?" + query.Encode()
-	res, err := http.Get(request_url)
+func (connection *SubsonicConnection) GetIndexes() (*SubsonicResponse, error) {
+	query := defaultQuery(connection)
+	requestUrl := connection.Host + "/rest/getIndexes" + "?" + query.Encode()
+	res, err := http.Get(requestUrl)
 
 	if err != nil {
 		return nil, err
@@ -151,11 +157,11 @@ func GetIndexes(username string, password string, host string) (*SubsonicRespons
 	return &decodedBody.Response, nil
 }
 
-func GetMusicDirectory(username string, password string, host string, id string) (*SubsonicResponse, error) {
-	query := defaultQuery(username, password, host)
+func (connection *SubsonicConnection) GetMusicDirectory(id string) (*SubsonicResponse, error) {
+	query := defaultQuery(connection)
 	query.Set("id", id)
-	request_url := host + "/rest/getMusicDirectory" + "?" + query.Encode()
-	res, err := http.Get(request_url)
+	requestUrl := connection.Host + "/rest/getMusicDirectory" + "?" + query.Encode()
+	res, err := http.Get(requestUrl)
 
 	if err != nil {
 		return nil, err
@@ -179,4 +185,17 @@ func GetMusicDirectory(username string, password string, host string, id string)
 	}
 
 	return &decodedBody.Response, nil
+}
+
+// note that this function does not make a request, it just formats the play url
+// to pass to mpv
+func (connection *SubsonicConnection) GetPlayUrl(entity *SubsonicEntity) string {
+	// we don't want to call stream on a directory
+	if entity.IsDirectory {
+		return ""
+	}
+
+	query := defaultQuery(connection)
+	query.Set("id", entity.Id)
+	return connection.Host + "/rest/stream" + "?" + query.Encode()
 }

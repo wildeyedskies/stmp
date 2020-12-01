@@ -38,7 +38,7 @@ func main() {
 	}
 
 	response, _ := connection.GetIndexes()
-	InitGui(&response.Indexes.Index)
+	InitGui(&response.Indexes.Index, connection)
 
 	//response, _ := GetServerInfo(username, password, host)
 	//fmt.Printf("%s \n", response.Status)

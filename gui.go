@@ -5,13 +5,30 @@ import (
 	"github.com/rivo/tview"
 )
 
-func handleArtistSelected(artistId string, entityList *tview.List, connection *SubsonicConnection) {
+func handleEntitySelected(directoryId string, entityList *tview.List, connection *SubsonicConnection) {
 	// TODO handle error here
-	response, _ := connection.GetMusicDirectory(artistId)
+	response, _ := connection.GetMusicDirectory(directoryId)
 
 	entityList.Clear()
+	if response.Directory.Parent != "" {
+		entityList.AddItem(tview.Escape("[..]"), "", 0, makeEntityHandler(response.Directory.Parent, entityList, connection))
+	}
+
 	for _, entity := range response.Directory.Entities {
-		entityList.AddItem(entity.Title, "", 0, nil)
+		var title string
+		if entity.IsDirectory {
+			title = tview.Escape("[" + entity.Title + "]")
+		} else {
+			title = entity.Title
+		}
+
+		entityList.AddItem(title, "", 0, makeEntityHandler(entity.Id, entityList, connection))
+	}
+}
+
+func makeEntityHandler(directoryId string, entityList *tview.List, connection *SubsonicConnection) func() {
+	return func() {
+		handleEntitySelected(directoryId, entityList, connection)
 	}
 }
 
@@ -40,7 +57,7 @@ func InitGui(indexes *[]SubsonicIndex, connection *SubsonicConnection) {
 		SetSelectedFocusOnly(true)
 
 	artistList.SetChangedFunc(func(index int, _ string, _ string, _ rune) {
-		handleArtistSelected(artistIdList[index], entityList, connection)
+		handleEntitySelected(artistIdList[index], entityList, connection)
 	})
 
 	// content row flex

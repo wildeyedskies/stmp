@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"math"
+	"time"
 
 	"github.com/gdamore/tcell"
 	"github.com/rivo/tview"
@@ -61,7 +63,7 @@ func InitGui(indexes *[]SubsonicIndex, connection *SubsonicConnection) {
 	playerStatusText := tview.NewTextView().SetText("[90%][0:00/0:00]").SetTextAlign(tview.AlignRight)
 
 	// handle
-	go handleMpvEvents(mpvEvents, playerStatusText, startStopStatusText)
+	go handleMpvEvents(mpvEvents, mpvInstance, playerStatusText, startStopStatusText)
 
 	//title row flex
 	titleFlex := tview.NewFlex().SetDirection(tview.FlexColumn).
@@ -125,9 +127,9 @@ func InitGui(indexes *[]SubsonicIndex, connection *SubsonicConnection) {
 	}
 }
 
-func handleMpvEvents(c chan *mpv.Event, playerStatus *tview.TextView, startStopStatus *tview.TextView) {
+func handleMpvEvents(mpvEvents chan *mpv.Event, mpvInstance *mpv.Mpv, playerStatus *tview.TextView, startStopStatus *tview.TextView) {
 	for {
-		e := <-c
+		e := <-mpvEvents
 		if e == nil {
 			break
 		} else if e.Event_Id == mpv.EVENT_END_FILE {
@@ -135,5 +137,21 @@ func handleMpvEvents(c chan *mpv.Event, playerStatus *tview.TextView, startStopS
 		} else if e.Event_Id == mpv.EVENT_START_FILE {
 			startStopStatus.SetText("stmp: started")
 		}
+
+		// TODO how to handle mpv errors here?
+		pos, _ := mpvInstance.GetProperty("time-pos", mpv.FORMAT_DOUBLE)
+		if pos != nil {
+			playerStatus.SetText("[90%][" + fmtPosition(pos.(float64)) + "/0:00]")
+		}
 	}
+}
+
+func fmtPosition(position float64) string {
+	if position < 0 {
+		position = 0
+	}
+
+	d := time.Duration(position * float64(time.Second))
+	d = d.Round(time.Second)
+	return fmt.Sprintf("%02.0f:%02.0f", math.Floor(d.Minutes()), d.Seconds())
 }

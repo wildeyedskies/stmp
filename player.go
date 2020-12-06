@@ -4,6 +4,18 @@ import (
 	"github.com/yourok/go-mpv/mpv"
 )
 
+const (
+	PlayerStopped = 0
+	PlayerPlaying = 1
+	PlayerPaused  = 2
+)
+
+type Player struct {
+	Instance     *mpv.Mpv
+	EventChannel chan *mpv.Event
+	Queue        []string
+}
+
 func eventListener(m *mpv.Mpv) chan *mpv.Event {
 	c := make(chan *mpv.Event)
 	go func() {
@@ -15,9 +27,8 @@ func eventListener(m *mpv.Mpv) chan *mpv.Event {
 	return c
 }
 
-func InitMpv() (*mpv.Mpv, chan *mpv.Event, error) {
+func InitPlayer() (*Player, error) {
 	mpvInstance := mpv.Create()
-	updateChannel := eventListener(mpvInstance)
 
 	// TODO figure out what other mpv options we need
 	mpvInstance.SetOptionString("audio-display", "no")
@@ -26,12 +37,29 @@ func InitMpv() (*mpv.Mpv, chan *mpv.Event, error) {
 	err := mpvInstance.Initialize()
 	if err != nil {
 		mpvInstance.TerminateDestroy()
-		return nil, nil, err
+		return nil, err
 	}
 
-	return mpvInstance, updateChannel, nil
+	return &Player{mpvInstance, eventListener(mpvInstance), nil}, nil
 }
 
-func LoadFile(mpvInstance *mpv.Mpv, uri string) {
-	mpvInstance.Command([]string{"loadfile", uri})
+func (p *Player) Play(uri string) {
+	p.Queue = []string{uri}
+	p.Instance.Command([]string{"loadfile", uri})
+}
+
+func (p *Player) Pause() int {
+	pause, _ := p.Instance.GetProperty("pause", mpv.FORMAT_FLAG)
+
+	if pause != nil {
+		if pause.(bool) {
+			p.Instance.SetProperty("pause", mpv.FORMAT_FLAG, false)
+			return PlayerPlaying
+		} else {
+			p.Instance.SetProperty("pause", mpv.FORMAT_FLAG, true)
+			return PlayerPaused
+		}
+	} else {
+		return PlayerStopped
+	}
 }

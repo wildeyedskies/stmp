@@ -10,13 +10,13 @@ import (
 	"github.com/yourok/go-mpv/mpv"
 )
 
-func handleEntitySelected(directoryId string, entityList *tview.List, connection *SubsonicConnection, mpvInstance *mpv.Mpv) {
+func handleEntitySelected(directoryId string, entityList *tview.List, connection *SubsonicConnection, player *Player) {
 	// TODO handle error here
 	response, _ := connection.GetMusicDirectory(directoryId)
 
 	entityList.Clear()
 	if response.Directory.Parent != "" {
-		entityList.AddItem(tview.Escape("[..]"), "", 0, makeEntityHandler(response.Directory.Parent, entityList, connection, mpvInstance))
+		entityList.AddItem(tview.Escape("[..]"), "", 0, makeEntityHandler(response.Directory.Parent, entityList, connection, player))
 	}
 
 	for _, entity := range response.Directory.Entities {
@@ -25,31 +25,31 @@ func handleEntitySelected(directoryId string, entityList *tview.List, connection
 		var handler func()
 		if entity.IsDirectory {
 			title = tview.Escape("[" + entity.Title + "]")
-			handler = makeEntityHandler(entity.Id, entityList, connection, mpvInstance)
+			handler = makeEntityHandler(entity.Id, entityList, connection, player)
 		} else {
 			title = entity.Title
-			handler = makeSongHandler(connection.GetPlayUrl(&entity), mpvInstance)
+			handler = makeSongHandler(connection.GetPlayUrl(&entity), player)
 		}
 
 		entityList.AddItem(title, "", 0, handler)
 	}
 }
 
-func makeSongHandler(uri string, mpvInstance *mpv.Mpv) func() {
+func makeSongHandler(uri string, player *Player) func() {
 	return func() {
-		LoadFile(mpvInstance, uri)
+		player.Play(uri)
 	}
 }
 
-func makeEntityHandler(directoryId string, entityList *tview.List, connection *SubsonicConnection, mpvInstance *mpv.Mpv) func() {
+func makeEntityHandler(directoryId string, entityList *tview.List, connection *SubsonicConnection, player *Player) func() {
 	return func() {
-		handleEntitySelected(directoryId, entityList, connection, mpvInstance)
+		handleEntitySelected(directoryId, entityList, connection, player)
 	}
 }
 
 func InitGui(indexes *[]SubsonicIndex, connection *SubsonicConnection) {
 	app := tview.NewApplication()
-	mpvInstance, mpvEvents, err := InitMpv()
+	player, err := InitPlayer()
 
 	if err != nil {
 		app.Stop()
@@ -63,7 +63,7 @@ func InitGui(indexes *[]SubsonicIndex, connection *SubsonicConnection) {
 	playerStatusText := tview.NewTextView().SetText("[90%][0:00/0:00]").SetTextAlign(tview.AlignRight)
 
 	// handle
-	go handleMpvEvents(mpvEvents, mpvInstance, playerStatusText, startStopStatusText)
+	go handleMpvEvents(player, playerStatusText, startStopStatusText)
 
 	//title row flex
 	titleFlex := tview.NewFlex().SetDirection(tview.FlexColumn).
@@ -84,7 +84,7 @@ func InitGui(indexes *[]SubsonicIndex, connection *SubsonicConnection) {
 		SetSelectedFocusOnly(true)
 
 	artistList.SetChangedFunc(func(index int, _ string, _ string, _ rune) {
-		handleEntitySelected(artistIdList[index], entityList, connection, mpvInstance)
+		handleEntitySelected(artistIdList[index], entityList, connection, player)
 	})
 
 	// content row flex
@@ -115,10 +115,23 @@ func InitGui(indexes *[]SubsonicIndex, connection *SubsonicConnection) {
 
 	rowFlex.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Rune() == 'q' {
-			mpvEvents <- nil
-			mpvInstance.TerminateDestroy()
+			player.EventChannel <- nil
+			player.Instance.TerminateDestroy()
 			app.Stop()
 		}
+
+		if event.Rune() == 'p' {
+			status := player.Pause()
+			if status == PlayerStopped {
+				startStopStatusText.SetText("stmp: stopped")
+			} else if status == PlayerPlaying {
+				startStopStatusText.SetText("stmp: playing")
+			} else if status == PlayerPaused {
+				startStopStatusText.SetText("stmp: paused")
+			}
+			return nil
+		}
+
 		return event
 	})
 
@@ -127,19 +140,19 @@ func InitGui(indexes *[]SubsonicIndex, connection *SubsonicConnection) {
 	}
 }
 
-func handleMpvEvents(mpvEvents chan *mpv.Event, mpvInstance *mpv.Mpv, playerStatus *tview.TextView, startStopStatus *tview.TextView) {
+func handleMpvEvents(player *Player, playerStatus *tview.TextView, startStopStatus *tview.TextView) {
 	for {
-		e := <-mpvEvents
+		e := <-player.EventChannel
 		if e == nil {
 			break
 		} else if e.Event_Id == mpv.EVENT_END_FILE {
 			startStopStatus.SetText("stmp: stopped")
 		} else if e.Event_Id == mpv.EVENT_START_FILE {
-			startStopStatus.SetText("stmp: started")
+			startStopStatus.SetText("stmp: playing")
 		}
 
 		// TODO how to handle mpv errors here?
-		pos, _ := mpvInstance.GetProperty("time-pos", mpv.FORMAT_DOUBLE)
+		pos, _ := player.Instance.GetProperty("time-pos", mpv.FORMAT_DOUBLE)
 		if pos != nil {
 			playerStatus.SetText("[90%][" + fmtPosition(pos.(float64)) + "/0:00]")
 		}

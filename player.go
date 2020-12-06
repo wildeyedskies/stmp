@@ -33,5 +33,5 @@ func InitMpv() (*mpv.Mpv, chan *mpv.Event, error) {
 }
 
 func LoadFile(mpvInstance *mpv.Mpv, uri string) {
-	mpvInstance.Command([]string{"loadfile", uri, "replace=yes"})
+	mpvInstance.Command([]string{"loadfile", uri})
 }

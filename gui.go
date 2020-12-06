@@ -58,7 +58,7 @@ func InitGui(indexes *[]SubsonicIndex, connection *SubsonicConnection) {
 	//directoryCache := make(map[string][]SubsonicDirectory)
 
 	startStopStatusText := tview.NewTextView().SetText("stmp: stopped").SetTextAlign(tview.AlignLeft)
-	playerStatusText := tview.NewTextView().SetText("[90%][0:00/0:00").SetTextAlign(tview.AlignRight)
+	playerStatusText := tview.NewTextView().SetText("[90%][0:00/0:00]").SetTextAlign(tview.AlignRight)
 
 	// handle
 	go handleMpvEvents(mpvEvents, playerStatusText, startStopStatusText)

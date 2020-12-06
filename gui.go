@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"math"
-	"time"
 
 	"github.com/gdamore/tcell"
 	"github.com/rivo/tview"
@@ -60,7 +59,7 @@ func InitGui(indexes *[]SubsonicIndex, connection *SubsonicConnection) {
 	//directoryCache := make(map[string][]SubsonicDirectory)
 
 	startStopStatusText := tview.NewTextView().SetText("stmp: stopped").SetTextAlign(tview.AlignLeft)
-	playerStatusText := tview.NewTextView().SetText("[90%][0:00/0:00]").SetTextAlign(tview.AlignRight)
+	playerStatusText := tview.NewTextView().SetText("[100%][0:00/0:00]").SetTextAlign(tview.AlignRight)
 
 	// handle
 	go handleMpvEvents(player, playerStatusText, startStopStatusText)
@@ -132,6 +131,16 @@ func InitGui(indexes *[]SubsonicIndex, connection *SubsonicConnection) {
 			return nil
 		}
 
+		if event.Rune() == '-' {
+			player.AdjustVolume(-5)
+			return nil
+		}
+
+		if event.Rune() == '=' {
+			player.AdjustVolume(5)
+			return nil
+		}
+
 		return event
 	})
 
@@ -152,19 +161,45 @@ func handleMpvEvents(player *Player, playerStatus *tview.TextView, startStopStat
 		}
 
 		// TODO how to handle mpv errors here?
-		pos, _ := player.Instance.GetProperty("time-pos", mpv.FORMAT_DOUBLE)
-		if pos != nil {
-			playerStatus.SetText("[90%][" + fmtPosition(pos.(float64)) + "/0:00]")
+		position, _ := player.Instance.GetProperty("time-pos", mpv.FORMAT_DOUBLE)
+		// TODO only update these as needed
+		duration, _ := player.Instance.GetProperty("duration", mpv.FORMAT_DOUBLE)
+		volume, _ := player.Instance.GetProperty("volume", mpv.FORMAT_INT64)
+
+		if position == nil {
+			position = 0.0
 		}
+
+		if duration == nil {
+			duration = 0.0
+		}
+
+		if volume == nil {
+			volume = 0
+		}
+
+		playerStatus.SetText(formatPlayerStatus(volume.(int64), position.(float64), duration.(float64)))
 	}
 }
 
-func fmtPosition(position float64) string {
+func formatPlayerStatus(volume int64, position float64, duration float64) string {
 	if position < 0 {
-		position = 0
+		position = 0.0
 	}
 
-	d := time.Duration(position * float64(time.Second))
-	d = d.Round(time.Second)
-	return fmt.Sprintf("%02.0f:%02.0f", math.Floor(d.Minutes()), d.Seconds())
+	if duration < 0 {
+		duration = 0.0
+	}
+
+	positionMin, positionSec := secondsToMinAndSec(position)
+	durationMin, durationSec := secondsToMinAndSec(duration)
+
+	return fmt.Sprintf("[%d%%][%02.0f:%02.0f/%02.0f:%02.0f]", volume,
+		positionMin, positionSec, durationMin, durationSec)
+}
+
+func secondsToMinAndSec(seconds float64) (float64, float64) {
+	minutes := math.Floor(seconds / 60)
+	seconds = seconds - (minutes * 60)
+	return minutes, seconds
 }

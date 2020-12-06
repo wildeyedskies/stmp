@@ -63,3 +63,21 @@ func (p *Player) Pause() int {
 		return PlayerStopped
 	}
 }
+
+func (p *Player) AdjustVolume(increment int64) {
+	volume, _ := p.Instance.GetProperty("volume", mpv.FORMAT_INT64)
+
+	if volume == nil {
+		return
+	}
+
+	nevVolume := volume.(int64) + increment
+
+	if nevVolume > 100 {
+		nevVolume = 100
+	} else if nevVolume < 0 {
+		nevVolume = 0
+	}
+
+	p.Instance.SetProperty("volume", mpv.FORMAT_INT64, nevVolume)
+}

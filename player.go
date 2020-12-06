@@ -35,12 +35,3 @@ func InitMpv() (*mpv.Mpv, chan *mpv.Event, error) {
 func LoadFile(mpvInstance *mpv.Mpv, uri string) {
 	mpvInstance.Command([]string{"loadfile", uri, "replace=yes"})
 }
-
-func WaitForPlayerComplete(c chan *mpv.Event) {
-	for {
-		e := <-c
-		if e.Event_Id == mpv.EVENT_END_FILE {
-			break
-		}
-	}
-}

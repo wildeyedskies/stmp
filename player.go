@@ -60,6 +60,10 @@ func (p *Player) Play(uri string, title string, artist string) {
 	p.Instance.Command([]string{"loadfile", uri})
 }
 
+func (p *Player) Stop() {
+	p.Instance.Command([]string{"stop"})
+}
+
 func (p *Player) Pause() int {
 	idle, _ := p.Instance.GetProperty("idle-active", mpv.FORMAT_FLAG)
 	pause, _ := p.Instance.GetProperty("pause", mpv.FORMAT_FLAG)

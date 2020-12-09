@@ -53,7 +53,24 @@ func handleEntitySelected(directoryId string, ui *Ui) {
 
 func handleDeleteFromQueue(ui *Ui) {
 	currentIndex := ui.queueList.GetCurrentItem()
+	queue := ui.player.Queue
 
+	if currentIndex == -1 || len(ui.player.Queue) < currentIndex {
+		return
+	}
+
+	// remove the item from the queue
+	if len(ui.player.Queue) > 1 {
+		ui.player.Queue = append(queue[:currentIndex], queue[currentIndex+1:]...)
+	} else {
+		ui.player.Queue = nil
+	}
+
+	// if the deleted item was the first one, stop the player
+	if currentIndex == 0 {
+		ui.player.Stop()
+	}
+	updateQueueList(ui.player, ui.queueList)
 }
 
 func handleAddEntityToQueue(ui *Ui) {
@@ -186,6 +203,16 @@ func InitGui(indexes *[]SubsonicIndex, connection *SubsonicConnection) *Ui {
 			handleAddEntityToQueue(&ui)
 			return nil
 		}
+
+		return event
+	})
+
+	queueList.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyDelete || event.Rune() == 'd' {
+			handleDeleteFromQueue(&ui)
+			return nil
+		}
+
 		return event
 	})
 
@@ -217,6 +244,11 @@ func InitGui(indexes *[]SubsonicIndex, connection *SubsonicConnection) *Ui {
 			player.EventChannel <- nil
 			player.Instance.TerminateDestroy()
 			app.Stop()
+		}
+		if event.Rune() == 'D' {
+			player.Queue = nil
+			player.Stop()
+			updateQueueList(player, queueList)
 		}
 
 		if event.Rune() == 'p' {

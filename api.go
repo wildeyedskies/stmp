@@ -14,9 +14,10 @@ import (
 var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
 type SubsonicConnection struct {
-	Username string
-	Password string
-	Host     string
+	Username       string
+	Password       string
+	Host           string
+	directoryCache map[string]SubsonicResponse
 }
 
 func randSeq(n int) string {
@@ -159,6 +160,10 @@ func (connection *SubsonicConnection) GetIndexes() (*SubsonicResponse, error) {
 }
 
 func (connection *SubsonicConnection) GetMusicDirectory(id string) (*SubsonicResponse, error) {
+	if cachedResponse, present := connection.directoryCache[id]; present {
+		return &cachedResponse, nil
+	}
+
 	query := defaultQuery(connection)
 	query.Set("id", id)
 	requestUrl := connection.Host + "/rest/getMusicDirectory" + "?" + query.Encode()
@@ -183,6 +188,11 @@ func (connection *SubsonicConnection) GetMusicDirectory(id string) (*SubsonicRes
 
 	if err != nil {
 		return nil, err
+	}
+
+	// on a sucessful request, cache the response
+	if decodedBody.Response.Status == "ok" {
+		connection.directoryCache[id] = decodedBody.Response
 	}
 
 	return &decodedBody.Response, nil

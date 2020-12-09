@@ -32,9 +32,10 @@ func main() {
 	readConfig()
 
 	connection := &SubsonicConnection{
-		Username: viper.GetString("auth.username"),
-		Password: viper.GetString("auth.password"),
-		Host:     viper.GetString("server.host"),
+		Username:       viper.GetString("auth.username"),
+		Password:       viper.GetString("auth.password"),
+		Host:           viper.GetString("server.host"),
+		directoryCache: make(map[string]SubsonicResponse),
 	}
 
 	response, _ := connection.GetIndexes()

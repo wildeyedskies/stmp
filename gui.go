@@ -43,7 +43,7 @@ func handleEntitySelected(directoryId string, ui *Ui) {
 		} else {
 			title = entity.getSongTitle()
 			handler = makeSongHandler(ui.connection.GetPlayUrl(&entity),
-				entity.Title, stringOr(entity.Artist, response.Directory.Name),
+				title, stringOr(entity.Artist, response.Directory.Name),
 				ui.player, ui.queueList)
 		}
 
@@ -51,15 +51,56 @@ func handleEntitySelected(directoryId string, ui *Ui) {
 	}
 }
 
-/*func handleAddEntityToQueue(ui *Ui) {
+func handleAddEntityToQueue(ui *Ui) {
+	currentIndex := ui.entityList.GetCurrentItem()
 
-}*/
+	// if we have a parent directory subtract 1 to account for the [..]
+	// which would be index 0 in that case with index 1 being the first entity
+	if ui.currentDirectory.Parent != "" {
+		currentIndex--
+	}
+
+	if currentIndex == -1 || len(ui.currentDirectory.Entities) < currentIndex {
+		return
+	}
+
+	entity := ui.currentDirectory.Entities[currentIndex]
+
+	if entity.IsDirectory {
+		addDirectoryToQueue(&entity, ui)
+	} else {
+		addSongToQueue(&entity, ui)
+	}
+	updateQueueList(ui.player, ui.queueList)
+}
+
+func addDirectoryToQueue(entity *SubsonicEntity, ui *Ui) {
+	response, _ := ui.connection.GetMusicDirectory(entity.Id)
+
+	for _, e := range response.Directory.Entities {
+		if e.IsDirectory {
+			addDirectoryToQueue(&e, ui)
+		} else {
+			addSongToQueue(&e, ui)
+		}
+	}
+}
+
+func addSongToQueue(entity *SubsonicEntity, ui *Ui) {
+	uri := ui.connection.GetPlayUrl(entity)
+	queueItem := QueueItem{
+		uri,
+		entity.getSongTitle(),
+		stringOr(entity.Artist, ui.currentDirectory.Name),
+	}
+	ui.player.Queue = append(ui.player.Queue, queueItem)
+}
 
 func makeSongHandler(uri string, title string, artist string, player *Player,
 	queueList *tview.List) func() {
 	return func() {
 		player.Play(uri, title, artist)
-		updateQueue(player, queueList)
+		updateQueueList(player, queueList)
 	}
 }
 
@@ -136,6 +177,10 @@ func InitGui(indexes *[]SubsonicIndex, connection *SubsonicConnection) *Ui {
 			app.SetFocus(artistList)
 			return nil
 		}
+		if event.Rune() == 'a' {
+			handleAddEntityToQueue(&ui)
+			return nil
+		}
 		return event
 	})
 
@@ -201,7 +246,7 @@ func InitGui(indexes *[]SubsonicIndex, connection *SubsonicConnection) *Ui {
 	return &ui
 }
 
-func updateQueue(player *Player, queueList *tview.List) {
+func updateQueueList(player *Player, queueList *tview.List) {
 	queueList.Clear()
 	for _, queueItem := range player.Queue {
 		queueList.AddItem(fmt.Sprintf("%s - %s", queueItem.Title, queueItem.Artist), "", 0, nil)
@@ -219,10 +264,11 @@ func handleMpvEvents(ui *Ui) {
 			if len(ui.player.Queue) > 0 {
 				ui.player.Queue = ui.player.Queue[1:]
 			}
-			updateQueue(ui.player, ui.queueList)
+			updateQueueList(ui.player, ui.queueList)
+			ui.player.PlayNextTrack()
 		} else if e.Event_Id == mpv.EVENT_START_FILE {
 			ui.startStopStatus.SetText("stmp: playing")
-			updateQueue(ui.player, ui.queueList)
+			updateQueueList(ui.player, ui.queueList)
 		}
 
 		// TODO how to handle mpv errors here?

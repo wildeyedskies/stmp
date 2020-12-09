@@ -49,6 +49,12 @@ func InitPlayer() (*Player, error) {
 	return &Player{mpvInstance, eventListener(mpvInstance), nil}, nil
 }
 
+func (p *Player) PlayNextTrack() {
+	if len(p.Queue) > 0 {
+		p.Instance.Command([]string{"loadfile", p.Queue[0].Uri})
+	}
+}
+
 func (p *Player) Play(uri string, title string, artist string) {
 	p.Queue = []QueueItem{QueueItem{uri, title, artist}}
 	p.Instance.Command([]string{"loadfile", uri})

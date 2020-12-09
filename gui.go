@@ -10,15 +10,28 @@ import (
 	"github.com/yourok/go-mpv/mpv"
 )
 
-func handleEntitySelected(directoryId string, entityList *tview.List,
-	connection *SubsonicConnection, player *Player) {
-	// TODO handle error here
-	response, _ := connection.GetMusicDirectory(directoryId)
+/// struct contains all the updatable elements of the Ui
+type Ui struct {
+	app              *tview.Application
+	entityList       *tview.List
+	queueList        *tview.List
+	startStopStatus  *tview.TextView
+	playerStatus     *tview.TextView
+	currentDirectory *SubsonicDirectory
+	artistIdList     []string
+	connection       *SubsonicConnection
+	player           *Player
+}
 
-	entityList.Clear()
+func handleEntitySelected(directoryId string, ui *Ui) {
+	// TODO handle error here
+	response, _ := ui.connection.GetMusicDirectory(directoryId)
+
+	ui.currentDirectory = &response.Directory
+	ui.entityList.Clear()
 	if response.Directory.Parent != "" {
-		entityList.AddItem(tview.Escape("[..]"), "", 0,
-			makeEntityHandler(response.Directory.Parent, entityList, connection, player))
+		ui.entityList.AddItem(tview.Escape("[..]"), "", 0,
+			makeEntityHandler(response.Directory.Parent, ui))
 	}
 
 	for _, entity := range response.Directory.Entities {
@@ -26,51 +39,73 @@ func handleEntitySelected(directoryId string, entityList *tview.List,
 		var handler func()
 		if entity.IsDirectory {
 			title = tview.Escape("[" + entity.Title + "]")
-			handler = makeEntityHandler(entity.Id, entityList, connection, player)
+			handler = makeEntityHandler(entity.Id, ui)
 		} else {
 			title = entity.getSongTitle()
-			handler = makeSongHandler(connection.GetPlayUrl(&entity),
-				entity.Title, entity.Artist, player)
+			handler = makeSongHandler(ui.connection.GetPlayUrl(&entity),
+				entity.Title, stringOr(entity.Artist, response.Directory.Name),
+				ui.player, ui.queueList)
 		}
 
-		entityList.AddItem(title, "", 0, handler)
+		ui.entityList.AddItem(title, "", 0, handler)
 	}
 }
 
-func makeSongHandler(uri string, title string, artist string, player *Player) func() {
+/*func handleAddEntityToQueue(ui *Ui) {
+
+}*/
+
+func makeSongHandler(uri string, title string, artist string, player *Player,
+	queueList *tview.List) func() {
 	return func() {
 		player.Play(uri, title, artist)
+		updateQueue(player, queueList)
 	}
 }
 
-func makeEntityHandler(directoryId string, entityList *tview.List, connection *SubsonicConnection, player *Player) func() {
+func makeEntityHandler(directoryId string, ui *Ui) func() {
 	return func() {
-		handleEntitySelected(directoryId, entityList, connection, player)
+		handleEntitySelected(directoryId, ui)
 	}
 }
 
-func InitGui(indexes *[]SubsonicIndex, connection *SubsonicConnection) {
+func InitGui(indexes *[]SubsonicIndex, connection *SubsonicConnection) *Ui {
 	app := tview.NewApplication()
+	// list of entities
+	entityList := tview.NewList().ShowSecondaryText(false).
+		SetSelectedFocusOnly(true)
+	// player queue
+	queueList := tview.NewList().ShowSecondaryText(false)
+	// status text at the top
+	startStopStatus := tview.NewTextView().SetText("stmp: stopped").SetTextAlign(tview.AlignLeft)
+	playerStatus := tview.NewTextView().SetText("[100%][0:00/0:00]").SetTextAlign(tview.AlignRight)
 	player, err := InitPlayer()
+	var currentDirectory *SubsonicDirectory
+	var artistIdList []string
+
+	ui := Ui{
+		app,
+		entityList,
+		queueList,
+		startStopStatus,
+		playerStatus,
+		currentDirectory,
+		artistIdList,
+		connection,
+		player,
+	}
 
 	if err != nil {
 		app.Stop()
 		fmt.Println("Unable to initialize mpv. Is mpv installed?")
 	}
 
-	// TODO cache directories
-	//directoryCache := make(map[string][]SubsonicDirectory)
-
-	startStopStatusText := tview.NewTextView().SetText("stmp: stopped").SetTextAlign(tview.AlignLeft)
-	playerStatusText := tview.NewTextView().SetText("[100%][0:00/0:00]").SetTextAlign(tview.AlignRight)
-
 	//title row flex
 	titleFlex := tview.NewFlex().SetDirection(tview.FlexColumn).
-		AddItem(startStopStatusText, 0, 1, false).
-		AddItem(playerStatusText, 0, 1, false)
+		AddItem(startStopStatus, 0, 1, false).
+		AddItem(playerStatus, 0, 1, false)
 
-	var artistIdList []string
-	// artist list
+	// artist list, used to map the index of
 	artistList := tview.NewList().ShowSecondaryText(false)
 	for _, index := range *indexes {
 		for _, artist := range index.Artists {
@@ -78,13 +113,6 @@ func InitGui(indexes *[]SubsonicIndex, connection *SubsonicConnection) {
 			artistIdList = append(artistIdList, artist.Id)
 		}
 	}
-
-	entityList := tview.NewList().ShowSecondaryText(false).
-		SetSelectedFocusOnly(true)
-
-	artistList.SetChangedFunc(func(index int, _ string, _ string, _ rune) {
-		handleEntitySelected(artistIdList[index], entityList, connection, player)
-	})
 
 	artistFlex := tview.NewFlex().SetDirection(tview.FlexColumn).
 		AddItem(artistList, 0, 1, true).
@@ -111,14 +139,16 @@ func InitGui(indexes *[]SubsonicIndex, connection *SubsonicConnection) {
 		return event
 	})
 
-	queueList := tview.NewList().ShowSecondaryText(false)
+	artistList.SetChangedFunc(func(index int, _ string, _ string, _ rune) {
+		handleEntitySelected(artistIdList[index], &ui)
+	})
 
 	queueFlex := tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(titleFlex, 1, 0, false).
 		AddItem(queueList, 0, 1, true)
 
 	// handle
-	go handleMpvEvents(player, playerStatusText, startStopStatusText, queueList, app)
+	go handleMpvEvents(&ui)
 
 	pages := tview.NewPages().
 		AddPage("browser", browserFlex, true, true).
@@ -142,11 +172,11 @@ func InitGui(indexes *[]SubsonicIndex, connection *SubsonicConnection) {
 		if event.Rune() == 'p' {
 			status := player.Pause()
 			if status == PlayerStopped {
-				startStopStatusText.SetText("stmp: stopped")
+				startStopStatus.SetText("stmp: stopped")
 			} else if status == PlayerPlaying {
-				startStopStatusText.SetText("stmp: playing")
+				startStopStatus.SetText("stmp: playing")
 			} else if status == PlayerPaused {
-				startStopStatusText.SetText("stmp: paused")
+				startStopStatus.SetText("stmp: paused")
 			}
 			return nil
 		}
@@ -164,9 +194,11 @@ func InitGui(indexes *[]SubsonicIndex, connection *SubsonicConnection) {
 		return event
 	})
 
-	if err := app.SetRoot(pages, true).SetFocus(entityList).EnableMouse(true).Run(); err != nil {
+	if err := app.SetRoot(pages, true).SetFocus(pages).EnableMouse(true).Run(); err != nil {
 		panic(err)
 	}
+
+	return &ui
 }
 
 func updateQueue(player *Player, queueList *tview.List) {
@@ -176,26 +208,28 @@ func updateQueue(player *Player, queueList *tview.List) {
 	}
 }
 
-func handleMpvEvents(player *Player, playerStatus *tview.TextView,
-	startStopStatus *tview.TextView, queueList *tview.List,
-	app *tview.Application) {
+func handleMpvEvents(ui *Ui) {
 	for {
-		e := <-player.EventChannel
+		e := <-ui.player.EventChannel
 		if e == nil {
 			break
 		} else if e.Event_Id == mpv.EVENT_END_FILE {
-			startStopStatus.SetText("stmp: stopped")
-			updateQueue(player, queueList)
+			ui.startStopStatus.SetText("stmp: stopped")
+			// TODO it's gross that this is here, need better event handling
+			if len(ui.player.Queue) > 0 {
+				ui.player.Queue = ui.player.Queue[1:]
+			}
+			updateQueue(ui.player, ui.queueList)
 		} else if e.Event_Id == mpv.EVENT_START_FILE {
-			startStopStatus.SetText("stmp: playing")
-			updateQueue(player, queueList)
+			ui.startStopStatus.SetText("stmp: playing")
+			updateQueue(ui.player, ui.queueList)
 		}
 
 		// TODO how to handle mpv errors here?
-		position, _ := player.Instance.GetProperty("time-pos", mpv.FORMAT_DOUBLE)
+		position, _ := ui.player.Instance.GetProperty("time-pos", mpv.FORMAT_DOUBLE)
 		// TODO only update these as needed
-		duration, _ := player.Instance.GetProperty("duration", mpv.FORMAT_DOUBLE)
-		volume, _ := player.Instance.GetProperty("volume", mpv.FORMAT_INT64)
+		duration, _ := ui.player.Instance.GetProperty("duration", mpv.FORMAT_DOUBLE)
+		volume, _ := ui.player.Instance.GetProperty("volume", mpv.FORMAT_INT64)
 
 		if position == nil {
 			position = 0.0
@@ -209,8 +243,8 @@ func handleMpvEvents(player *Player, playerStatus *tview.TextView,
 			volume = 0
 		}
 
-		playerStatus.SetText(formatPlayerStatus(volume.(int64), position.(float64), duration.(float64)))
-		app.Draw()
+		ui.playerStatus.SetText(formatPlayerStatus(volume.(int64), position.(float64), duration.(float64)))
+		ui.app.Draw()
 	}
 }
 
@@ -234,6 +268,14 @@ func secondsToMinAndSec(seconds float64) (int, int) {
 	minutes := math.Floor(seconds / 60)
 	remainingSeconds := int(seconds) % 60
 	return int(minutes), remainingSeconds
+}
+
+/// if the first argument isn't empty, return it, otherwise return the second
+func stringOr(firstChoice string, secondChoice string) string {
+	if firstChoice != "" {
+		return firstChoice
+	}
+	return secondChoice
 }
 
 /// Return the title if present, otherwise fallback to the file path

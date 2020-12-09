@@ -55,18 +55,28 @@ func (p *Player) Play(uri string, title string, artist string) {
 }
 
 func (p *Player) Pause() int {
+	idle, _ := p.Instance.GetProperty("idle-active", mpv.FORMAT_FLAG)
 	pause, _ := p.Instance.GetProperty("pause", mpv.FORMAT_FLAG)
 
-	if pause != nil {
-		if pause.(bool) {
-			p.Instance.SetProperty("pause", mpv.FORMAT_FLAG, false)
+	if idle.(bool) {
+		if len(p.Queue) != 0 {
+			p.Instance.Command([]string{"loadfile", p.Queue[0].Uri})
 			return PlayerPlaying
 		} else {
-			p.Instance.SetProperty("pause", mpv.FORMAT_FLAG, true)
-			return PlayerPaused
+			return PlayerStopped
 		}
 	} else {
-		return PlayerStopped
+		if pause != nil {
+			if pause.(bool) {
+				p.Instance.SetProperty("pause", mpv.FORMAT_FLAG, false)
+				return PlayerPlaying
+			} else {
+				p.Instance.SetProperty("pause", mpv.FORMAT_FLAG, true)
+				return PlayerPaused
+			}
+		} else {
+			return PlayerStopped
+		}
 	}
 }
 

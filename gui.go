@@ -51,6 +51,11 @@ func handleEntitySelected(directoryId string, ui *Ui) {
 	}
 }
 
+func handleDeleteFromQueue(ui *Ui) {
+	currentIndex := ui.queueList.GetCurrentItem()
+
+}
+
 func handleAddEntityToQueue(ui *Ui) {
 	currentIndex := ui.entityList.GetCurrentItem()
 

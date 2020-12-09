@@ -39,20 +39,4 @@ func main() {
 
 	response, _ := connection.GetIndexes()
 	InitGui(&response.Indexes.Index, connection)
-
-	//response, _ := GetServerInfo(username, password, host)
-	//fmt.Printf("%s \n", response.Status)
-
-	//response, err := connection.GetMusicDirectory("al-523")
-	//songUrl := connection.GetPlayUrl(&response.Directory.Entities[0])
-
-	//mpvInstance, mpvEvents, err := InitMpv()
-
-	/*if err != nil {
-		fmt.Println(err)
-	}*/
-
-	//LoadFile(mpvInstance, songUrl)
-	//WaitForPlayerComplete(mpvEvents)
-	//mpvInstance.TerminateDestroy()
 }

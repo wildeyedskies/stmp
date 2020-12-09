@@ -140,8 +140,10 @@ func InitGui(indexes *[]SubsonicIndex, connection *SubsonicConnection) *Ui {
 	// player queue
 	queueList := tview.NewList().ShowSecondaryText(false)
 	// status text at the top
-	startStopStatus := tview.NewTextView().SetText("stmp: stopped").SetTextAlign(tview.AlignLeft)
-	playerStatus := tview.NewTextView().SetText("[100%][0:00/0:00]").SetTextAlign(tview.AlignRight)
+	startStopStatus := tview.NewTextView().SetText("stmp: stopped").
+		SetTextAlign(tview.AlignLeft)
+	playerStatus := tview.NewTextView().SetText("[100%][0:00/0:00]").
+		SetTextAlign(tview.AlignRight)
 	player, err := InitPlayer()
 	var currentDirectory *SubsonicDirectory
 	var artistIdList []string
@@ -256,7 +258,7 @@ func InitGui(indexes *[]SubsonicIndex, connection *SubsonicConnection) *Ui {
 			if status == PlayerStopped {
 				startStopStatus.SetText("stmp: stopped")
 			} else if status == PlayerPlaying {
-				startStopStatus.SetText("stmp: playing")
+				startStopStatus.SetText("stmp: playing " + player.Queue[0].Title)
 			} else if status == PlayerPaused {
 				startStopStatus.SetText("stmp: paused")
 			}
@@ -304,7 +306,7 @@ func handleMpvEvents(ui *Ui) {
 			updateQueueList(ui.player, ui.queueList)
 			ui.player.PlayNextTrack()
 		} else if e.Event_Id == mpv.EVENT_START_FILE {
-			ui.startStopStatus.SetText("stmp: playing")
+			ui.startStopStatus.SetText("stmp: playing " + ui.player.Queue[0].Title)
 			updateQueueList(ui.player, ui.queueList)
 		}
 

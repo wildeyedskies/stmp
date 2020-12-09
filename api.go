@@ -75,6 +75,7 @@ type SubsonicEntity struct {
 	Duraction   int    `json:"duration"`
 	Track       int    `json:"track"`
 	DiskNumber  int    `json:"diskNumber"`
+	Path        string `json:"path"`
 }
 
 type SubsonicIndexes struct {

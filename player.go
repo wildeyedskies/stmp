@@ -10,10 +10,16 @@ const (
 	PlayerPaused  = 2
 )
 
+type QueueItem struct {
+	Uri    string
+	Title  string
+	Artist string
+}
+
 type Player struct {
 	Instance     *mpv.Mpv
 	EventChannel chan *mpv.Event
-	Queue        []string
+	Queue        []QueueItem
 }
 
 func eventListener(m *mpv.Mpv) chan *mpv.Event {
@@ -43,8 +49,8 @@ func InitPlayer() (*Player, error) {
 	return &Player{mpvInstance, eventListener(mpvInstance), nil}, nil
 }
 
-func (p *Player) Play(uri string) {
-	p.Queue = []string{uri}
+func (p *Player) Play(uri string, title string, artist string) {
+	p.Queue = []QueueItem{QueueItem{uri, title, artist}}
 	p.Instance.Command([]string{"loadfile", uri})
 }
 

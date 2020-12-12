@@ -64,26 +64,32 @@ func (p *Player) Stop() {
 	p.Instance.Command([]string{"stop"})
 }
 
-func (p *Player) Pause() int {
+func (p *Player) IsSongLoaded() bool {
 	idle, _ := p.Instance.GetProperty("idle-active", mpv.FORMAT_FLAG)
-	pause, _ := p.Instance.GetProperty("pause", mpv.FORMAT_FLAG)
+	return !idle.(bool)
+}
 
-	if idle.(bool) {
+func (p *Player) IsPaused() bool {
+	pause, _ := p.Instance.GetProperty("pause", mpv.FORMAT_FLAG)
+	return pause.(bool)
+}
+
+func (p *Player) Pause() int {
+	loaded := p.IsSongLoaded()
+	pause := p.IsPaused()
+
+	if loaded {
+		if pause {
+			p.Instance.SetProperty("pause", mpv.FORMAT_FLAG, false)
+			return PlayerPlaying
+		} else {
+			p.Instance.SetProperty("pause", mpv.FORMAT_FLAG, true)
+			return PlayerPaused
+		}
+	} else {
 		if len(p.Queue) != 0 {
 			p.Instance.Command([]string{"loadfile", p.Queue[0].Uri})
 			return PlayerPlaying
-		} else {
-			return PlayerStopped
-		}
-	} else {
-		if pause != nil {
-			if pause.(bool) {
-				p.Instance.SetProperty("pause", mpv.FORMAT_FLAG, false)
-				return PlayerPlaying
-			} else {
-				p.Instance.SetProperty("pause", mpv.FORMAT_FLAG, true)
-				return PlayerPaused
-			}
 		} else {
 			return PlayerStopped
 		}

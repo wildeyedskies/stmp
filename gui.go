@@ -59,6 +59,13 @@ func handleDeleteFromQueue(ui *Ui) {
 		return
 	}
 
+	// if the deleted item was the first one, and the player is loaded
+	// remove the track. Removing the track auto starts the next one
+	if currentIndex == 0 && ui.player.IsSongLoaded() {
+		ui.player.Stop()
+		return
+	}
+
 	// remove the item from the queue
 	if len(ui.player.Queue) > 1 {
 		ui.player.Queue = append(queue[:currentIndex], queue[currentIndex+1:]...)
@@ -66,10 +73,6 @@ func handleDeleteFromQueue(ui *Ui) {
 		ui.player.Queue = nil
 	}
 
-	// if the deleted item was the first one, stop the player
-	if currentIndex == 0 {
-		ui.player.Stop()
-	}
 	updateQueueList(ui.player, ui.queueList)
 }
 

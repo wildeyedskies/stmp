@@ -143,10 +143,12 @@ func InitGui(indexes *[]SubsonicIndex, connection *SubsonicConnection) *Ui {
 	// player queue
 	queueList := tview.NewList().ShowSecondaryText(false)
 	// status text at the top
-	startStopStatus := tview.NewTextView().SetText("stmp: stopped").
-		SetTextAlign(tview.AlignLeft)
-	playerStatus := tview.NewTextView().SetText("[100%][0:00/0:00]").
-		SetTextAlign(tview.AlignRight)
+	startStopStatus := tview.NewTextView().SetText("[::b]stmp: [red]stopped").
+		SetTextAlign(tview.AlignLeft).
+		SetDynamicColors(true)
+	playerStatus := tview.NewTextView().SetText("[::b][100%][0:00/0:00]").
+		SetTextAlign(tview.AlignRight).
+		SetDynamicColors(true)
 	player, err := InitPlayer()
 	var currentDirectory *SubsonicDirectory
 	var artistIdList []string
@@ -259,11 +261,11 @@ func InitGui(indexes *[]SubsonicIndex, connection *SubsonicConnection) *Ui {
 		if event.Rune() == 'p' {
 			status := player.Pause()
 			if status == PlayerStopped {
-				startStopStatus.SetText("stmp: stopped")
+				startStopStatus.SetText("[::b]stmp: [red]stopped")
 			} else if status == PlayerPlaying {
-				startStopStatus.SetText("stmp: playing " + player.Queue[0].Title)
+				startStopStatus.SetText("[::b]stmp: [green]playing " + player.Queue[0].Title)
 			} else if status == PlayerPaused {
-				startStopStatus.SetText("stmp: paused")
+				startStopStatus.SetText("[::b]stmp: [yellow]paused")
 			}
 			return nil
 		}
@@ -301,7 +303,7 @@ func handleMpvEvents(ui *Ui) {
 		if e == nil {
 			break
 		} else if e.Event_Id == mpv.EVENT_END_FILE {
-			ui.startStopStatus.SetText("stmp: stopped")
+			ui.startStopStatus.SetText("[::b]stmp: [red]stopped")
 			// TODO it's gross that this is here, need better event handling
 			if len(ui.player.Queue) > 0 {
 				ui.player.Queue = ui.player.Queue[1:]
@@ -309,7 +311,7 @@ func handleMpvEvents(ui *Ui) {
 			updateQueueList(ui.player, ui.queueList)
 			ui.player.PlayNextTrack()
 		} else if e.Event_Id == mpv.EVENT_START_FILE {
-			ui.startStopStatus.SetText("stmp: playing " + ui.player.Queue[0].Title)
+			ui.startStopStatus.SetText("[::b]stmp: [green]playing " + ui.player.Queue[0].Title)
 			updateQueueList(ui.player, ui.queueList)
 		}
 
@@ -348,7 +350,7 @@ func formatPlayerStatus(volume int64, position float64, duration float64) string
 	positionMin, positionSec := secondsToMinAndSec(position)
 	durationMin, durationSec := secondsToMinAndSec(duration)
 
-	return fmt.Sprintf("[%d%%][%02d:%02d/%02d:%02d]", volume,
+	return fmt.Sprintf("[::b][%d%%][%02d:%02d/%02d:%02d]", volume,
 		positionMin, positionSec, durationMin, durationSec)
 }
 

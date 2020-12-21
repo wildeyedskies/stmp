@@ -302,7 +302,8 @@ func handleMpvEvents(ui *Ui) {
 		e := <-ui.player.EventChannel
 		if e == nil {
 			break
-		} else if e.Event_Id == mpv.EVENT_END_FILE {
+			// we don't want to update anything if we're in the process of replacing the current track
+		} else if e.Event_Id == mpv.EVENT_END_FILE && !ui.player.ReplaceInProgress {
 			ui.startStopStatus.SetText("[::b]stmp: [red]stopped")
 			// TODO it's gross that this is here, need better event handling
 			if len(ui.player.Queue) > 0 {
@@ -311,6 +312,7 @@ func handleMpvEvents(ui *Ui) {
 			updateQueueList(ui.player, ui.queueList)
 			ui.player.PlayNextTrack()
 		} else if e.Event_Id == mpv.EVENT_START_FILE {
+			ui.player.ReplaceInProgress = false
 			ui.startStopStatus.SetText("[::b]stmp: [green]playing " + ui.player.Queue[0].Title)
 			updateQueueList(ui.player, ui.queueList)
 		}

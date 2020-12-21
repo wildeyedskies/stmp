@@ -17,9 +17,10 @@ type QueueItem struct {
 }
 
 type Player struct {
-	Instance     *mpv.Mpv
-	EventChannel chan *mpv.Event
-	Queue        []QueueItem
+	Instance          *mpv.Mpv
+	EventChannel      chan *mpv.Event
+	Queue             []QueueItem
+	ReplaceInProgress bool
 }
 
 func eventListener(m *mpv.Mpv) chan *mpv.Event {
@@ -46,7 +47,7 @@ func InitPlayer() (*Player, error) {
 		return nil, err
 	}
 
-	return &Player{mpvInstance, eventListener(mpvInstance), nil}, nil
+	return &Player{mpvInstance, eventListener(mpvInstance), nil, false}, nil
 }
 
 func (p *Player) PlayNextTrack() {
@@ -57,6 +58,7 @@ func (p *Player) PlayNextTrack() {
 
 func (p *Player) Play(uri string, title string, artist string) {
 	p.Queue = []QueueItem{QueueItem{uri, title, artist}}
+	p.ReplaceInProgress = true
 	p.Instance.Command([]string{"loadfile", uri})
 }
 

@@ -42,8 +42,8 @@ host = 'https://your-subsonic-host.tld'
 
 ## Usage
 
-* 0 - folder view
-* 1 - queue view
+* 1 - folder view
+* 2 - queue view
 * enter - play song (clears current queue)
 * d/delete - remove currently selected song from the queue
 * D - remove all songs from queue

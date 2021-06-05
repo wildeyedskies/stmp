@@ -73,7 +73,7 @@ type SubsonicEntity struct {
 	Parent      string `json:"parent"`
 	Title       string `json:"title"`
 	Artist      string `json:"artist"`
-	Duraction   int    `json:"duration"`
+	Duration   int    `json:"duration"`
 	Track       int    `json:"track"`
 	DiskNumber  int    `json:"diskNumber"`
 	Path        string `json:"path"`

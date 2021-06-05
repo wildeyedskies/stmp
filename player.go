@@ -11,9 +11,10 @@ const (
 )
 
 type QueueItem struct {
-	Uri    string
-	Title  string
-	Artist string
+	Uri      string
+	Title    string
+	Artist   string
+	Duration int
 }
 
 type Player struct {
@@ -56,8 +57,8 @@ func (p *Player) PlayNextTrack() {
 	}
 }
 
-func (p *Player) Play(uri string, title string, artist string) {
-	p.Queue = []QueueItem{QueueItem{uri, title, artist}}
+func (p *Player) Play(uri string, title string, artist string, duration int) {
+	p.Queue = []QueueItem{QueueItem{uri, title, artist, duration}}
 	p.ReplaceInProgress = true
 	p.Instance.Command([]string{"loadfile", uri})
 }

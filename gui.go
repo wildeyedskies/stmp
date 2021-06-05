@@ -44,7 +44,7 @@ func handleEntitySelected(directoryId string, ui *Ui) {
 			title = entity.getSongTitle()
 			handler = makeSongHandler(ui.connection.GetPlayUrl(&entity),
 				title, stringOr(entity.Artist, response.Directory.Name),
-				ui.player, ui.queueList)
+				entity.Duration, ui.player, ui.queueList)
 		}
 
 		ui.entityList.AddItem(title, "", 0, handler)
@@ -117,14 +117,15 @@ func addSongToQueue(entity *SubsonicEntity, ui *Ui) {
 		uri,
 		entity.getSongTitle(),
 		stringOr(entity.Artist, ui.currentDirectory.Name),
+		entity.Duration,
 	}
 	ui.player.Queue = append(ui.player.Queue, queueItem)
 }
 
-func makeSongHandler(uri string, title string, artist string, player *Player,
+func makeSongHandler(uri string, title string, artist string, duration int, player *Player,
 	queueList *tview.List) func() {
 	return func() {
-		player.Play(uri, title, artist)
+		player.Play(uri, title, artist, duration)
 		updateQueueList(player, queueList)
 	}
 }
@@ -293,7 +294,8 @@ func InitGui(indexes *[]SubsonicIndex, connection *SubsonicConnection) *Ui {
 func updateQueueList(player *Player, queueList *tview.List) {
 	queueList.Clear()
 	for _, queueItem := range player.Queue {
-		queueList.AddItem(fmt.Sprintf("%s - %s", queueItem.Title, queueItem.Artist), "", 0, nil)
+		min, sec := iSecondsToMinAndSec(queueItem.Duration)
+		queueList.AddItem(fmt.Sprintf("%s - %s - %02d:%02d", queueItem.Title, queueItem.Artist, min, sec), "", 0, nil)
 	}
 }
 
@@ -360,6 +362,12 @@ func secondsToMinAndSec(seconds float64) (int, int) {
 	minutes := math.Floor(seconds / 60)
 	remainingSeconds := int(seconds) % 60
 	return int(minutes), remainingSeconds
+}
+
+func iSecondsToMinAndSec(seconds int) (int, int) {
+	minutes := seconds / 60
+	remainingSeconds := seconds % 60
+	return minutes, remainingSeconds
 }
 
 /// if the first argument isn't empty, return it, otherwise return the second

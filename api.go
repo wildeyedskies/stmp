@@ -8,16 +8,18 @@ import (
 	"math/rand"
 	"net/http"
 	"net/url"
+	"crypto/tls"
 )
 
 // used for generating salt
 var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
 type SubsonicConnection struct {
-	Username       string
-	Password       string
-	Host           string
-	directoryCache map[string]SubsonicResponse
+	Username              string
+	Password              string
+	Host                  string
+	AcceptInvalidSslCert  bool
+	directoryCache        map[string]SubsonicResponse
 }
 
 func randSeq(n int) string {
@@ -36,6 +38,7 @@ func authToken(password string) (string, string) {
 }
 
 func defaultQuery(connection *SubsonicConnection) url.Values {
+	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: connection.AcceptInvalidSslCert}
 	token, salt := authToken(connection.Password)
 	query := url.Values{}
 	query.Set("u", connection.Username)

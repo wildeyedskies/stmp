@@ -15,6 +15,8 @@ type Ui struct {
 	app              *tview.Application
 	entityList       *tview.List
 	queueList        *tview.List
+	playlistList	 *tview.List
+	selectedPlaylist *tview.List
 	startStopStatus  *tview.TextView
 	playerStatus     *tview.TextView
 	currentDirectory *SubsonicDirectory
@@ -136,13 +138,17 @@ func makeEntityHandler(directoryId string, ui *Ui) func() {
 	}
 }
 
-func InitGui(indexes *[]SubsonicIndex, connection *SubsonicConnection) *Ui {
+func InitGui(indexes *[]SubsonicIndex, playlists *[]SubsonicPlaylist, connection *SubsonicConnection) *Ui {
 	app := tview.NewApplication()
 	// list of entities
 	entityList := tview.NewList().ShowSecondaryText(false).
 		SetSelectedFocusOnly(true)
 	// player queue
 	queueList := tview.NewList().ShowSecondaryText(false)
+	// list of playlists
+	playlistList := tview.NewList().ShowSecondaryText(false)
+	// songs in the selected playlist
+	selectedPlaylist := tview.NewList().ShowSecondaryText(false)
 	// status text at the top
 	startStopStatus := tview.NewTextView().SetText("[::b]stmp: [red]stopped").
 		SetTextAlign(tview.AlignLeft).
@@ -158,6 +164,8 @@ func InitGui(indexes *[]SubsonicIndex, connection *SubsonicConnection) *Ui {
 		app,
 		entityList,
 		queueList,
+		playlistList,
+		selectedPlaylist,
 		startStopStatus,
 		playerStatus,
 		currentDirectory,
@@ -183,6 +191,9 @@ func InitGui(indexes *[]SubsonicIndex, connection *SubsonicConnection) *Ui {
 			artistList.AddItem(artist.Name, "", 0, nil)
 			artistIdList = append(artistIdList, artist.Id)
 		}
+	}
+	for _, playlist := range *playlists {
+		playlistList.AddItem(playlist.Name, "", 0, nil)
 	}
 
 	artistFlex := tview.NewFlex().SetDirection(tview.FlexColumn).
@@ -232,12 +243,17 @@ func InitGui(indexes *[]SubsonicIndex, connection *SubsonicConnection) *Ui {
 		AddItem(titleFlex, 1, 0, false).
 		AddItem(queueList, 0, 1, true)
 
+	playlistFlex := tview.NewFlex().SetDirection(tview.FlexColumn).
+		AddItem(playlistList, 0, 1, true).
+		AddItem(selectedPlaylist, 0, 1, false)
+
 	// handle
 	go handleMpvEvents(&ui)
 
 	pages := tview.NewPages().
 		AddPage("browser", browserFlex, true, true).
-		AddPage("queue", queueFlex, true, false)
+		AddPage("queue", queueFlex, true, false).
+		AddPage("playlists", playlistFlex, true, false)
 
 	pages.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Rune() == '1' {
@@ -246,6 +262,10 @@ func InitGui(indexes *[]SubsonicIndex, connection *SubsonicConnection) *Ui {
 		}
 		if event.Rune() == '2' {
 			pages.SwitchToPage("queue")
+			return nil
+		}
+		if event.Rune() == '3' {
+			pages.SwitchToPage("playlists")
 			return nil
 		}
 		if event.Rune() == 'q' {
@@ -340,6 +360,13 @@ func handleMpvEvents(ui *Ui) {
 		ui.playerStatus.SetText(formatPlayerStatus(volume.(int64), position.(float64), duration.(float64)))
 		ui.app.Draw()
 	}
+}
+
+func makeModal(p tview.Primitive, width, height int) tview.Primitive {
+	return tview.NewGrid().
+		SetColumns(0, width, 0).
+		SetRows(0, height, 0).
+		AddItem(p, 1, 1, 1, 1, 0, 0, true)
 }
 
 func formatPlayerStatus(volume int64, position float64, duration float64) string {

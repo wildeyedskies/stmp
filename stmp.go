@@ -38,6 +38,7 @@ func main() {
 		directoryCache: make(map[string]SubsonicResponse),
 	}
 
-	response, _ := connection.GetIndexes()
-	InitGui(&response.Indexes.Index, connection)
+	indexResponse, _ := connection.GetIndexes()
+	playlistResponse, _ := connection.GetPlaylists()
+	InitGui(&indexResponse.Indexes.Index, &playlistResponse.Playlists.Playlists, connection)
 }

@@ -93,10 +93,10 @@ type SubsonicPlaylists struct {
 }
 
 type SubsonicPlaylist struct {
-	Id 	  string `json:"id"`
+	Id 	  int `json:"id"`
 	Name      string `json:"name"`
 	SongCount int    `json:"songCount"`
-	Duration  int    `json:"duration"`
+	Entries   []SubsonicEntity `json:"entry"`
 }
 
 type SubsonicResponse struct {
@@ -105,6 +105,7 @@ type SubsonicResponse struct {
 	Indexes   SubsonicIndexes    `json:"indexes"`
 	Directory SubsonicDirectory  `json:"directory"`
 	Playlists SubsonicPlaylists  `json:"playlists"`
+	Playlist  SubsonicPlaylist   `json:"playlist"`
 	Error     SubsonicError      `json:"error"`
 }
 
@@ -239,19 +240,36 @@ func (connection *SubsonicConnection) GetPlaylists() (*SubsonicResponse, error) 
 	return &decodedBody.Response, nil
 }
 
-func (connection *SubsonicConnection) CreatePlaylist(name string) (error) {
+func (connection *SubsonicConnection) CreatePlaylist(name string) (*SubsonicResponse, error) {
 	query := defaultQuery(connection)
 	query.Set("name", name)
 	
 
 	requestUrl := connection.Host + "/rest/createPlaylist" + "?" + query.Encode()
-	_, err := http.Get(requestUrl)
+	res, err := http.Get(requestUrl)
 
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	if res.Body != nil {
+		defer res.Body.Close()
+	}
+
+	responseBody, readErr := ioutil.ReadAll(res.Body)
+
+	if readErr != nil {
+		return nil, err
+	}
+
+	var decodedBody responseWrapper
+	err = json.Unmarshal(responseBody, &decodedBody)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &decodedBody.Response, nil
 }
 
 func (connection *SubsonicConnection) DeletePlaylist(id string) (error) {

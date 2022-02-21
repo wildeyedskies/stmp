@@ -40,5 +40,6 @@ func main() {
 
 	indexResponse, _ := connection.GetIndexes()
 	playlistResponse, _ := connection.GetPlaylists()
+
 	InitGui(&indexResponse.Indexes.Index, &playlistResponse.Playlists.Playlists, connection)
 }

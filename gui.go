@@ -233,7 +233,7 @@ func createUi(indexes *[]SubsonicIndex, playlists *[]SubsonicPlaylist, connectio
 func createBrowserPage(ui *Ui, titleFlex *tview.Flex, indexes *[]SubsonicIndex) *tview.Flex {
 	// artist list, used to map the index of
 	artistList := tview.NewList().ShowSecondaryText(false)
-	for _, index := range indexes {
+	for _, index := range *indexes {
 		for _, artist := range index.Artists {
 			artistList.AddItem(artist.Name, "", 0, nil)
 			ui.artistIdList = append(ui.artistIdList, artist.Id)
@@ -288,23 +288,23 @@ func createBrowserPage(ui *Ui, titleFlex *tview.Flex, indexes *[]SubsonicIndex) 
         if event.Key() == tcell.KeyEscape {
             ui.pages.HidePage("addToPlaylist")
             ui.pages.SwitchToPage("browser")
-			ui.app.SetFocus(entityList)
+			ui.app.SetFocus(ui.entityList)
         }
         return nil
     })
 
 
-    return &browserFlex
+    return browserFlex
 }
 
-func createQueuepage(ui *Ui, titleFlex *tview.Flex) *tview.Flex {
+func createQueuePage(ui *Ui, titleFlex *tview.Flex) *tview.Flex {
 	queueFlex := tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(titleFlex, 1, 0, false).
-		AddItem(queueList, 0, 1, true)
+		AddItem(ui.queueList, 0, 1, true)
 
-    queueList.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+    ui.queueList.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyDelete || event.Rune() == 'd' {
-			handleDeleteFromQueue(&ui)
+			handleDeleteFromQueue(ui)
 			return nil
 		}
 
@@ -321,7 +321,7 @@ func createPlaylistPage(ui *Ui, titleFlex *tview.Flex) *tview.Flex {
 	}
 
     ui.playlistList.SetChangedFunc(func(index int, _ string, _ string, _ rune) {
-		handlePlaylistSelected(ui.playlists[index], &ui)
+		handlePlaylistSelected(ui.playlists[index], ui)
 	})
 
     newPlaylistInput := tview.NewInputField().
@@ -329,34 +329,34 @@ func createPlaylistPage(ui *Ui, titleFlex *tview.Flex) *tview.Flex {
         SetFieldWidth(50)
 
     playlistRowFlex := tview.NewFlex().SetDirection(tview.FlexRow).
-        AddItem(titleFlex, 0, 1, true)
-        AddItem(playlistList, 0, 1, true)
+        AddItem(titleFlex, 0, 1, true).
+        AddItem(ui.playlistList, 0, 1, true)
 
     playlistFlex := tview.NewFlex().SetDirection(tview.FlexColumn).
         AddItem(playlistRowFlex, 0, 1, true).
-        AddItem(selectedPlaylist, 0, 1, false)
+        AddItem(ui.selectedPlaylist, 0, 1, false)
 
     newPlaylistInput.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyEnter {
-			newPlaylist(newPlaylistInput.GetText(), &ui)
+			newPlaylist(newPlaylistInput.GetText(), ui)
 			playlistRowFlex.Clear()
             playlistRowFlex.AddItem(titleFlex, 0, 1, true)
-			playlistRowFlex.AddItem(playlistList, 0, 1, true)
-			app.SetFocus(playlistList)
+			playlistRowFlex.AddItem(ui.playlistList, 0, 1, true)
+			ui.app.SetFocus(ui.playlistList)
 			return nil
 		}
 		if event.Key() == tcell.KeyEscape {
 			playlistRowFlex.Clear()
-			playlistRowFlex.AddItem(playlistList, 0, 1, true)
-			app.SetFocus(playlistList)
+			playlistRowFlex.AddItem(ui.playlistList, 0, 1, true)
+			ui.app.SetFocus(ui.playlistList)
 			return nil
 		}
 		return event
 	})
 
-    playlistList.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+    ui.playlistList.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyRight {
-			app.SetFocus(selectedPlaylist)
+			ui.app.SetFocus(ui.selectedPlaylist)
 			return nil
 		}
 		if event.Rune() == 'a' {
@@ -365,14 +365,14 @@ func createPlaylistPage(ui *Ui, titleFlex *tview.Flex) *tview.Flex {
 		}
 		if event.Rune() == 'n' {
 			playlistRowFlex.AddItem(newPlaylistInput, 0, 1, true)
-			app.SetFocus(newPlaylistInput)
+			ui.app.SetFocus(newPlaylistInput)
 		}
 		return event
 	})
 
-    selectedPlaylist.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+    ui.selectedPlaylist.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyLeft {
-			app.SetFocus(playlistList)
+			ui.app.SetFocus(ui.playlistList)
 			return nil
 		}
 		if event.Rune() == 'a' {
@@ -396,73 +396,74 @@ func InitGui(indexes *[]SubsonicIndex, playlists *[]SubsonicPlaylist, connection
 		AddItem(ui.playerStatus, 0, 1, false)
 
 
-    browserFlex := createBrowserPage(&ui, &titleFlex, indexes)
-    queueFlex := createQueueFlex(&ui, &titleFlex)
+    browserFlex := createBrowserPage(ui, titleFlex, indexes)
+    queueFlex := createQueuePage(ui, titleFlex)
+	playlistFlex := createPlaylistPage(ui, titleFlex)
 
 
 	// handle
-	go handleMpvEvents(&ui)
+	go handleMpvEvents(ui)
 
     ui.pages.AddPage("browser", browserFlex, true, true).
 		AddPage("queue", queueFlex, true, false).
 		AddPage("playlists", playlistFlex, true, false).
         AddPage("addToPlaylist", addToPlaylistModal, true, false)
 
-	pages.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+	ui.pages.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		// we don't want any of these firing if we're trying to add a new playlist
-		if app.GetFocus() == newPlaylistInput {
+		if ui.app.GetFocus() == newPlaylistInput {
 			return event
 		}
 
 		if event.Rune() == '1' {
-			pages.SwitchToPage("browser")
+			ui.pages.SwitchToPage("browser")
 			return nil
 		}
 		if event.Rune() == '2' {
-			pages.SwitchToPage("queue")
+			ui.pages.SwitchToPage("queue")
 			return nil
 		}
 		if event.Rune() == '3' {
-			pages.SwitchToPage("playlists")
+			ui.pages.SwitchToPage("playlists")
 			return nil
 		}
 		if event.Rune() == 'q' {
-			player.EventChannel <- nil
-			player.Instance.TerminateDestroy()
-			app.Stop()
+			ui.player.EventChannel <- nil
+			ui.player.Instance.TerminateDestroy()
+			ui.app.Stop()
 		}
 		if event.Rune() == 'D' {
-			player.Queue = nil
-			player.Stop()
-			updateQueueList(player, queueList)
+			ui.player.Queue = nil
+			ui.player.Stop()
+			updateQueueList(ui.player, ui.queueList)
 		}
 
 		if event.Rune() == 'p' {
-			status := player.Pause()
+			status := ui.player.Pause()
 			if status == PlayerStopped {
-				startStopStatus.SetText("[::b]stmp: [red]stopped")
+				ui.startStopStatus.SetText("[::b]stmp: [red]stopped")
 			} else if status == PlayerPlaying {
-				startStopStatus.SetText("[::b]stmp: [green]playing " + player.Queue[0].Title)
+				ui.startStopStatus.SetText("[::b]stmp: [green]playing " + ui.player.Queue[0].Title)
 			} else if status == PlayerPaused {
-				startStopStatus.SetText("[::b]stmp: [yellow]paused")
+				ui.startStopStatus.SetText("[::b]stmp: [yellow]paused")
 			}
 			return nil
 		}
 
 		if event.Rune() == '-' {
-			player.AdjustVolume(-5)
+			ui.player.AdjustVolume(-5)
 			return nil
 		}
 
 		if event.Rune() == '=' {
-			player.AdjustVolume(5)
+			ui.player.AdjustVolume(5)
 			return nil
 		}
 
 		return event
 	})
 
-	if err := app.SetRoot(pages, true).SetFocus(pages).EnableMouse(true).Run(); err != nil {
+	if err := ui.app.SetRoot(ui.pages, true).SetFocus(ui.pages).EnableMouse(true).Run(); err != nil {
 		panic(err)
 	}
 

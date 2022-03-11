@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"math"
+   "strconv"
 	"strings"
 
 	"github.com/gdamore/tcell/v2"
@@ -119,6 +120,20 @@ func handleAddEntityToQueue(ui *Ui) {
 	updateQueueList(ui.player, ui.queueList)
 }
 
+func handleAddPlaylistSongToQueue(ui *Ui) {
+	playlistIndex := ui.playlistList.GetCurrentItem()
+   entityIndex := ui.selectedPlaylist.GetCurrentItem()
+
+   // TODO add some bounds checking here
+   if playlistIndex == -1 || entityIndex == -1 {
+      return
+   }
+
+	entity := ui.playlists[playlistIndex].Entries[entityIndex]
+   addSongToQueue(&entity, ui)
+	updateQueueList(ui.player, ui.queueList)
+}
+
 func handleAddPlaylistToQueue(ui *Ui) {
 	currentIndex := ui.playlistList.GetCurrentItem()
 
@@ -146,7 +161,7 @@ func handleAddSongToPlaylist(ui *Ui, playlist *SubsonicPlaylist) {
 	entity := ui.currentDirectory.Entities[currentIndex]
 
 	if !entity.IsDirectory {
-		ui.connection.AddSongToPlaylist(string(playlist.Id), entity.Id)
+		ui.connection.AddSongToPlaylist(strconv.Itoa(playlist.Id), entity.Id)
 	}
 	//TODO update the playlists
 }
@@ -165,10 +180,18 @@ func addDirectoryToQueue(entity *SubsonicEntity, ui *Ui) {
 
 func addSongToQueue(entity *SubsonicEntity, ui *Ui) {
 	uri := ui.connection.GetPlayUrl(entity)
+
+   var artist string
+   if ui.currentDirectory == nil {
+      artist = entity.Artist
+   } else {
+      stringOr(entity.Artist, ui.currentDirectory.Name)
+   }
+
 	queueItem := QueueItem{
 		uri,
 		entity.getSongTitle(),
-		stringOr(entity.Artist, ui.currentDirectory.Name),
+		artist,
 		entity.Duration,
 	}
 	ui.player.Queue = append(ui.player.Queue, queueItem)
@@ -331,8 +354,8 @@ func createBrowserPage(ui *Ui, titleFlex *tview.Flex, indexes *[]SubsonicIndex) 
 
 func createQueuePage(ui *Ui, titleFlex *tview.Flex) *tview.Flex {
 	queueFlex := tview.NewFlex().SetDirection(tview.FlexRow).
-	AddItem(titleFlex, 1, 0, false).
-	AddItem(ui.queueList, 0, 1, true)
+      AddItem(titleFlex, 1, 0, false).
+      AddItem(ui.queueList, 0, 1, true)
 
 	ui.queueList.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyDelete || event.Rune() == 'd' {
@@ -406,7 +429,7 @@ func createPlaylistPage(ui *Ui, titleFlex *tview.Flex) *tview.Flex {
 			return nil
 		}
 		if event.Rune() == 'a' {
-			// TODO handle add song to queue
+			handleAddPlaylistSongToQueue(ui)
 			return nil
 		}
 		return event

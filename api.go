@@ -240,6 +240,38 @@ func (connection *SubsonicConnection) GetPlaylists() (*SubsonicResponse, error) 
 	return &decodedBody.Response, nil
 }
 
+func (connection *SubsonicConnection) GetPlaylist(id string) (*SubsonicResponse, error) {
+	query := defaultQuery(connection)
+	query.Set("id", id)
+	
+
+	requestUrl := connection.Host + "/rest/getPlaylist" + "?" + query.Encode()
+	res, err := http.Get(requestUrl)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if res.Body != nil {
+		defer res.Body.Close()
+	}
+
+	responseBody, readErr := ioutil.ReadAll(res.Body)
+
+	if readErr != nil {
+		return nil, err
+	}
+
+	var decodedBody responseWrapper
+	err = json.Unmarshal(responseBody, &decodedBody)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &decodedBody.Response, nil
+}
+
 func (connection *SubsonicConnection) CreatePlaylist(name string) (*SubsonicResponse, error) {
 	query := defaultQuery(connection)
 	query.Set("name", name)

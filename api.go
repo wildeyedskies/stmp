@@ -73,7 +73,7 @@ type SubsonicEntity struct {
 	Parent      string `json:"parent"`
 	Title       string `json:"title"`
 	Artist      string `json:"artist"`
-	Duration   int    `json:"duration"`
+	Duration    int    `json:"duration"`
 	Track       int    `json:"track"`
 	DiskNumber  int    `json:"diskNumber"`
 	Path        string `json:"path"`
@@ -93,20 +93,20 @@ type SubsonicPlaylists struct {
 }
 
 type SubsonicPlaylist struct {
-	Id 	  int `json:"id"`
-	Name      string `json:"name"`
-	SongCount int    `json:"songCount"`
+	Id        int              `json:"id"`
+	Name      string           `json:"name"`
+	SongCount int              `json:"songCount"`
 	Entries   []SubsonicEntity `json:"entry"`
 }
 
 type SubsonicResponse struct {
-	Status    string             `json:"status"`
-	Version   string             `json:"version"`
-	Indexes   SubsonicIndexes    `json:"indexes"`
-	Directory SubsonicDirectory  `json:"directory"`
-	Playlists SubsonicPlaylists  `json:"playlists"`
-	Playlist  SubsonicPlaylist   `json:"playlist"`
-	Error     SubsonicError      `json:"error"`
+	Status    string            `json:"status"`
+	Version   string            `json:"version"`
+	Indexes   SubsonicIndexes   `json:"indexes"`
+	Directory SubsonicDirectory `json:"directory"`
+	Playlists SubsonicPlaylists `json:"playlists"`
+	Playlist  SubsonicPlaylist  `json:"playlist"`
+	Error     SubsonicError     `json:"error"`
 }
 
 type responseWrapper struct {
@@ -243,7 +243,6 @@ func (connection *SubsonicConnection) GetPlaylists() (*SubsonicResponse, error) 
 func (connection *SubsonicConnection) GetPlaylist(id string) (*SubsonicResponse, error) {
 	query := defaultQuery(connection)
 	query.Set("id", id)
-	
 
 	requestUrl := connection.Host + "/rest/getPlaylist" + "?" + query.Encode()
 	res, err := http.Get(requestUrl)
@@ -275,7 +274,6 @@ func (connection *SubsonicConnection) GetPlaylist(id string) (*SubsonicResponse,
 func (connection *SubsonicConnection) CreatePlaylist(name string) (*SubsonicResponse, error) {
 	query := defaultQuery(connection)
 	query.Set("name", name)
-	
 
 	requestUrl := connection.Host + "/rest/createPlaylist" + "?" + query.Encode()
 	res, err := http.Get(requestUrl)
@@ -304,10 +302,9 @@ func (connection *SubsonicConnection) CreatePlaylist(name string) (*SubsonicResp
 	return &decodedBody.Response, nil
 }
 
-func (connection *SubsonicConnection) DeletePlaylist(id string) (error) {
+func (connection *SubsonicConnection) DeletePlaylist(id string) error {
 	query := defaultQuery(connection)
 	query.Set("id", id)
-	
 
 	requestUrl := connection.Host + "/rest/deletePlaylist" + "?" + query.Encode()
 	_, err := http.Get(requestUrl)
@@ -319,11 +316,10 @@ func (connection *SubsonicConnection) DeletePlaylist(id string) (error) {
 	return nil
 }
 
-func (connection *SubsonicConnection) AddSongToPlaylist(playlistId string, songId string) (error) {
+func (connection *SubsonicConnection) AddSongToPlaylist(playlistId string, songId string) error {
 	query := defaultQuery(connection)
 	query.Set("playlistId", playlistId)
 	query.Set("songIdToAdd", songId)
-	
 
 	requestUrl := connection.Host + "/rest/updatePlaylist" + "?" + query.Encode()
 	_, err := http.Get(requestUrl)
@@ -335,11 +331,10 @@ func (connection *SubsonicConnection) AddSongToPlaylist(playlistId string, songI
 	return nil
 }
 
-func (connection *SubsonicConnection) RemoveSongFromPlaylist(playlistId string, songIndex int) (error) {
+func (connection *SubsonicConnection) RemoveSongFromPlaylist(playlistId string, songIndex int) error {
 	query := defaultQuery(connection)
 	query.Set("playlistId", playlistId)
 	query.Set("songIndexToRemove", string(songIndex))
-	
 
 	requestUrl := connection.Host + "/rest/updatePlaylist" + "?" + query.Encode()
 	_, err := http.Get(requestUrl)

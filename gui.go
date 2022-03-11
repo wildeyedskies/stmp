@@ -18,6 +18,7 @@ type Ui struct {
 	queueList        *tview.List
 	playlistList	 *tview.List
 	selectedPlaylist *tview.List
+	newPlaylistInput *tview.InputField
 	startStopStatus  *tview.TextView
 	playerStatus     *tview.TextView
 	currentDirectory *SubsonicDirectory
@@ -118,7 +119,18 @@ func handleAddEntityToQueue(ui *Ui) {
 	updateQueueList(ui.player, ui.queueList)
 }
 
-func handleAddEntityToPlaylist(ui *Ui) {
+func handleAddPlaylistToQueue(ui *Ui) {
+	currentIndex := ui.playlistList.GetCurrentItem()
+
+	playlist := ui.playlists[currentIndex]
+
+	for _, entity := range playlist.Entries {
+		addSongToQueue(&entity, ui)
+	}
+	updateQueueList(ui.player, ui.queueList)
+}
+
+func handleAddSongToPlaylist(ui *Ui, playlist *SubsonicPlaylist) {
 	currentIndex := ui.entityList.GetCurrentItem()
 
 	// if we have a parent directory subtract 1 to account for the [..]
@@ -134,7 +146,7 @@ func handleAddEntityToPlaylist(ui *Ui) {
 	entity := ui.currentDirectory.Entities[currentIndex]
 
 	if !entity.IsDirectory {
-
+		ui.connection.AddSongToPlaylist(string(playlist.Id), entity.Id)
 	}
 	//TODO update the playlists
 }
@@ -192,7 +204,8 @@ func createUi(indexes *[]SubsonicIndex, playlists *[]SubsonicPlaylist, connectio
 	// player queue
 	queueList := tview.NewList().ShowSecondaryText(false)
 	// list of playlists
-	playlistList := tview.NewList().ShowSecondaryText(false)
+	playlistList := tview.NewList().ShowSecondaryText(false).
+		SetSelectedFocusOnly(true)
 	// songs in the selected playlist
 	selectedPlaylist := tview.NewList().ShowSecondaryText(false)
 	// status text at the top
@@ -202,6 +215,9 @@ func createUi(indexes *[]SubsonicIndex, playlists *[]SubsonicPlaylist, connectio
 	playerStatus := tview.NewTextView().SetText("[::b][100%][0:00/0:00]").
 		SetTextAlign(tview.AlignRight).
 		SetDynamicColors(true)
+    newPlaylistInput := tview.NewInputField().
+        SetLabel("Playlist name:").
+        SetFieldWidth(50)
 	player, err := InitPlayer()
 	var currentDirectory *SubsonicDirectory
 	var artistIdList []string
@@ -213,6 +229,7 @@ func createUi(indexes *[]SubsonicIndex, playlists *[]SubsonicPlaylist, connectio
 		queueList,
 		playlistList,
 		selectedPlaylist,
+        newPlaylistInput,
 		startStopStatus,
 		playerStatus,
 		currentDirectory,
@@ -230,7 +247,7 @@ func createUi(indexes *[]SubsonicIndex, playlists *[]SubsonicPlaylist, connectio
 	return &ui
 }
 
-func createBrowserPage(ui *Ui, titleFlex *tview.Flex, indexes *[]SubsonicIndex) *tview.Flex {
+func createBrowserPage(ui *Ui, titleFlex *tview.Flex, indexes *[]SubsonicIndex) (*tview.Flex, tview.Primitive) {
 	// artist list, used to map the index of
 	artistList := tview.NewList().ShowSecondaryText(false)
 	for _, index := range *indexes {
@@ -261,6 +278,34 @@ func createBrowserPage(ui *Ui, titleFlex *tview.Flex, indexes *[]SubsonicIndex) 
 		handleEntitySelected(ui.artistIdList[index], ui)
 	})
 
+    // we need a specific version of this because we need different keybinds
+    playlistList := tview.NewList().ShowSecondaryText(false)
+    for _, playlist := range ui.playlists {
+	playlistList.AddItem(playlist.Name, "", 0, nil)
+    }
+
+    addToPlaylistFlex := tview.NewFlex().
+        SetDirection(tview.FlexRow).
+        AddItem(playlistList, 0, 1, true)
+
+    addToPlaylistModal := makeModal(addToPlaylistFlex, 60, 20)
+
+    playlistList.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+        if event.Key() == tcell.KeyEscape {
+		ui.pages.HidePage("addToPlaylist")
+		ui.pages.SwitchToPage("browser")
+		ui.app.SetFocus(ui.entityList)
+        } else if event.Key() == tcell.KeyEnter {
+		playlist := ui.playlists[playlistList.GetCurrentItem()]
+		handleAddSongToPlaylist(ui, &playlist)
+
+		ui.pages.HidePage("addToPlaylist")
+		ui.pages.SwitchToPage("browser")
+		ui.app.SetFocus(ui.entityList)
+	}
+        return event
+    })
+
     ui.entityList.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyLeft {
 			ui.app.SetFocus(artistList)
@@ -272,37 +317,24 @@ func createBrowserPage(ui *Ui, titleFlex *tview.Flex, indexes *[]SubsonicIndex) 
 		}
 		// only makes sense to add to a playlist if there are playlists
 		if event.Rune() == 'A' && ui.playlistList.GetItemCount() > 0 {
-            ui.pages.ShowPage("addToPlaylist")
-            return nil
-        }
+			ui.pages.ShowPage("addToPlaylist")
+			ui.app.SetFocus(playlistList)
+			return nil
+		}
 		return event
 	})
 
-    addToPlaylistFlex := tview.NewFlex().
-        SetDirection(tview.FlexRow).
-        AddItem(ui.playlistList, 0, 1, true)
-
-    addToPlaylistModal := makeModal(addToPlaylistFlex, 60, 20)
-
-    addToPlaylistFlex.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-        if event.Key() == tcell.KeyEscape {
-            ui.pages.HidePage("addToPlaylist")
-            ui.pages.SwitchToPage("browser")
-			ui.app.SetFocus(ui.entityList)
-        }
-        return nil
-    })
 
 
-    return browserFlex
+	return browserFlex, addToPlaylistModal
 }
 
 func createQueuePage(ui *Ui, titleFlex *tview.Flex) *tview.Flex {
 	queueFlex := tview.NewFlex().SetDirection(tview.FlexRow).
-		AddItem(titleFlex, 1, 0, false).
-		AddItem(ui.queueList, 0, 1, true)
+	AddItem(titleFlex, 1, 0, false).
+	AddItem(ui.queueList, 0, 1, true)
 
-    ui.queueList.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+	ui.queueList.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyDelete || event.Rune() == 'd' {
 			handleDeleteFromQueue(ui)
 			return nil
@@ -311,7 +343,7 @@ func createQueuePage(ui *Ui, titleFlex *tview.Flex) *tview.Flex {
 		return event
 	})
 
-    return queueFlex
+	return queueFlex
 }
 
 func createPlaylistPage(ui *Ui, titleFlex *tview.Flex) *tview.Flex {
@@ -320,57 +352,55 @@ func createPlaylistPage(ui *Ui, titleFlex *tview.Flex) *tview.Flex {
 		ui.playlistList.AddItem(playlist.Name, "", 0, nil)
 	}
 
-    ui.playlistList.SetChangedFunc(func(index int, _ string, _ string, _ rune) {
+	ui.playlistList.SetChangedFunc(func(index int, _ string, _ string, _ rune) {
 		handlePlaylistSelected(ui.playlists[index], ui)
 	})
 
-    newPlaylistInput := tview.NewInputField().
-        SetLabel("Playlist name:").
-        SetFieldWidth(50)
+	playlistColFlex := tview.NewFlex().SetDirection(tview.FlexColumn).
+		AddItem(ui.playlistList, 0, 1, true).
+		AddItem(ui.selectedPlaylist, 0, 1, false)
 
-    playlistRowFlex := tview.NewFlex().SetDirection(tview.FlexRow).
-        AddItem(titleFlex, 0, 1, true).
-        AddItem(ui.playlistList, 0, 1, true)
 
-    playlistFlex := tview.NewFlex().SetDirection(tview.FlexColumn).
-        AddItem(playlistRowFlex, 0, 1, true).
-        AddItem(ui.selectedPlaylist, 0, 1, false)
+	playlistFlex := tview.NewFlex().SetDirection(tview.FlexRow).
+		AddItem(titleFlex, 1, 0, false).
+		AddItem(playlistColFlex, 0, 1, true)
 
-    newPlaylistInput.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+	ui.newPlaylistInput.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyEnter {
-			newPlaylist(newPlaylistInput.GetText(), ui)
-			playlistRowFlex.Clear()
-            playlistRowFlex.AddItem(titleFlex, 0, 1, true)
-			playlistRowFlex.AddItem(ui.playlistList, 0, 1, true)
+			newPlaylist(ui.newPlaylistInput.GetText(), ui)
+			playlistFlex.Clear()
+			playlistFlex.AddItem(titleFlex, 1, 0, false)
+			playlistFlex.AddItem(playlistColFlex, 0, 1, true)
 			ui.app.SetFocus(ui.playlistList)
 			return nil
 		}
 		if event.Key() == tcell.KeyEscape {
-			playlistRowFlex.Clear()
-			playlistRowFlex.AddItem(ui.playlistList, 0, 1, true)
+			playlistFlex.Clear()
+			playlistFlex.AddItem(titleFlex, 1, 0, false)
+			playlistFlex.AddItem(playlistColFlex, 0, 1, true)
 			ui.app.SetFocus(ui.playlistList)
 			return nil
 		}
 		return event
 	})
 
-    ui.playlistList.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+	ui.playlistList.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyRight {
 			ui.app.SetFocus(ui.selectedPlaylist)
 			return nil
 		}
 		if event.Rune() == 'a' {
-			//TODO handle add playlist to queue
+			handleAddPlaylistToQueue(ui)
 			return nil
 		}
 		if event.Rune() == 'n' {
-			playlistRowFlex.AddItem(newPlaylistInput, 0, 1, true)
-			ui.app.SetFocus(newPlaylistInput)
+			playlistFlex.AddItem(ui.newPlaylistInput, 0, 1, true)
+			ui.app.SetFocus(ui.newPlaylistInput)
 		}
 		return event
 	})
 
-    ui.selectedPlaylist.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+	ui.selectedPlaylist.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyLeft {
 			ui.app.SetFocus(ui.playlistList)
 			return nil
@@ -382,36 +412,36 @@ func createPlaylistPage(ui *Ui, titleFlex *tview.Flex) *tview.Flex {
 		return event
 	})
 
-    return playlistFlex
+	return playlistFlex
 }
 
 func InitGui(indexes *[]SubsonicIndex, playlists *[]SubsonicPlaylist, connection *SubsonicConnection) *Ui {
 	ui := createUi(indexes, playlists, connection)
 
-    // create components shared by pages
+	// create components shared by pages
 
-    //title row flex
+	//title row flex
 	titleFlex := tview.NewFlex().SetDirection(tview.FlexColumn).
-		AddItem(ui.startStopStatus, 0, 1, false).
-		AddItem(ui.playerStatus, 0, 1, false)
+	AddItem(ui.startStopStatus, 0, 1, false).
+	AddItem(ui.playerStatus, 0, 1, false)
 
 
-    browserFlex := createBrowserPage(ui, titleFlex, indexes)
-    queueFlex := createQueuePage(ui, titleFlex)
+	browserFlex, addToPlaylistModal := createBrowserPage(ui, titleFlex, indexes)
+	queueFlex := createQueuePage(ui, titleFlex)
 	playlistFlex := createPlaylistPage(ui, titleFlex)
 
 
 	// handle
 	go handleMpvEvents(ui)
 
-    ui.pages.AddPage("browser", browserFlex, true, true).
-		AddPage("queue", queueFlex, true, false).
-		AddPage("playlists", playlistFlex, true, false).
-        AddPage("addToPlaylist", addToPlaylistModal, true, false)
+	ui.pages.AddPage("browser", browserFlex, true, true).
+	AddPage("queue", queueFlex, true, false).
+	AddPage("playlists", playlistFlex, true, false).
+	AddPage("addToPlaylist", addToPlaylistModal, true, false)
 
 	ui.pages.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		// we don't want any of these firing if we're trying to add a new playlist
-		if ui.app.GetFocus() == newPlaylistInput {
+		if ui.app.GetFocus() == ui.newPlaylistInput {
 			return event
 		}
 

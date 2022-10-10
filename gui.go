@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"math"
-	"strconv"
 	"strings"
 
 	"github.com/gdamore/tcell/v2"
@@ -11,7 +10,7 @@ import (
 	"github.com/yourok/go-mpv/mpv"
 )
 
-/// struct contains all the updatable elements of the Ui
+// struct contains all the updatable elements of the Ui
 type Ui struct {
 	app              *tview.Application
 	pages            *tview.Pages
@@ -161,7 +160,7 @@ func handleAddSongToPlaylist(ui *Ui, playlist *SubsonicPlaylist) {
 	entity := ui.currentDirectory.Entities[currentIndex]
 
 	if !entity.IsDirectory {
-		ui.connection.AddSongToPlaylist(strconv.Itoa(playlist.Id), entity.Id)
+		ui.connection.AddSongToPlaylist(playlist.Id, entity.Id)
 	}
 	//TODO update the playlists
 }
@@ -604,7 +603,7 @@ func iSecondsToMinAndSec(seconds int) (int, int) {
 	return minutes, remainingSeconds
 }
 
-/// if the first argument isn't empty, return it, otherwise return the second
+// if the first argument isn't empty, return it, otherwise return the second
 func stringOr(firstChoice string, secondChoice string) string {
 	if firstChoice != "" {
 		return firstChoice
@@ -612,7 +611,7 @@ func stringOr(firstChoice string, secondChoice string) string {
 	return secondChoice
 }
 
-/// Return the title if present, otherwise fallback to the file path
+// Return the title if present, otherwise fallback to the file path
 func (e SubsonicEntity) getSongTitle() string {
 	if e.Title != "" {
 		return e.Title

@@ -93,7 +93,7 @@ type SubsonicPlaylists struct {
 }
 
 type SubsonicPlaylist struct {
-	Id        int              `json:"id"`
+	Id        string           `json:"id"`
 	Name      string           `json:"name"`
 	SongCount int              `json:"songCount"`
 	Entries   []SubsonicEntity `json:"entry"`

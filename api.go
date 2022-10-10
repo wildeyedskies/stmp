@@ -237,6 +237,22 @@ func (connection *SubsonicConnection) GetPlaylists() (*SubsonicResponse, error) 
 		return nil, err
 	}
 
+	for i := 0; i < len(decodedBody.Response.Playlists.Playlists); i++ {
+		playlist := &decodedBody.Response.Playlists.Playlists[i]
+
+		if playlist.SongCount == 0 {
+			continue
+		}
+
+		response, err := connection.GetPlaylist(playlist.Id)
+
+		if err != nil {
+			return nil, err
+		}
+
+		playlist.Entries = response.Playlist.Entries
+	}
+
 	return &decodedBody.Response, nil
 }
 

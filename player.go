@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/yourok/go-mpv/mpv"
+	"github.com/wildeyedskies/go-mpv/mpv"
 )
 
 const (

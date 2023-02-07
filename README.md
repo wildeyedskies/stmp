@@ -18,8 +18,16 @@ Go build dependencies
 * [tview](https://github.com/rivo/tview)
 * [go-mpv](https://github.com/yourok/go-mpv/mpv)
 
+### OSX path setup
 
-### Compiling
+On OSX if you installed mpv with brew you'll need to set the following paths
+
+```
+export C_INCLUDE_PATH=/opt/homebrew/include:$C_INCLUDE_PATH
+export LIBRARY_PATH=/opt/homebrew/lib:$LIBRARY_PATH
+```
+
+## Compiling
 
 stmp should compile normally with `go build`. Cgo is needed for linking the
 libmpv header.

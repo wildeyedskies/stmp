@@ -18,6 +18,7 @@ type SubsonicConnection struct {
 	Username       string
 	Password       string
 	Host           string
+	Logger         Logger
 	directoryCache map[string]SubsonicResponse
 }
 
@@ -133,59 +134,13 @@ func (si *SubsonicId) UnmarshalJSON(b []byte) error {
 func (connection *SubsonicConnection) GetServerInfo() (*SubsonicResponse, error) {
 	query := defaultQuery(connection)
 	requestUrl := connection.Host + "/rest/ping" + "?" + query.Encode()
-	res, err := http.Get(requestUrl)
-
-	if err != nil {
-		return nil, err
-	}
-
-	if res.Body != nil {
-		defer res.Body.Close()
-	}
-
-	responseBody, readErr := ioutil.ReadAll(res.Body)
-
-	if readErr != nil {
-		return nil, err
-	}
-
-	var decodedBody responseWrapper
-	err = json.Unmarshal(responseBody, &decodedBody)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &decodedBody.Response, nil
+	return connection.getResponse("GetServerInfo", requestUrl)
 }
 
 func (connection *SubsonicConnection) GetIndexes() (*SubsonicResponse, error) {
 	query := defaultQuery(connection)
 	requestUrl := connection.Host + "/rest/getIndexes" + "?" + query.Encode()
-	res, err := http.Get(requestUrl)
-
-	if err != nil {
-		return nil, err
-	}
-
-	if res.Body != nil {
-		defer res.Body.Close()
-	}
-
-	responseBody, readErr := ioutil.ReadAll(res.Body)
-
-	if readErr != nil {
-		return nil, err
-	}
-
-	var decodedBody responseWrapper
-	err = json.Unmarshal(responseBody, &decodedBody)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &decodedBody.Response, nil
+	return connection.getResponse("GetIndexes", requestUrl)
 }
 
 func (connection *SubsonicConnection) GetMusicDirectory(id string) (*SubsonicResponse, error) {
@@ -196,64 +151,44 @@ func (connection *SubsonicConnection) GetMusicDirectory(id string) (*SubsonicRes
 	query := defaultQuery(connection)
 	query.Set("id", id)
 	requestUrl := connection.Host + "/rest/getMusicDirectory" + "?" + query.Encode()
-	res, err := http.Get(requestUrl)
-
+	resp, err := connection.getResponse("GetMusicDirectory", requestUrl)
 	if err != nil {
-		return nil, err
-	}
-
-	if res.Body != nil {
-		defer res.Body.Close()
-	}
-
-	responseBody, readErr := ioutil.ReadAll(res.Body)
-
-	if readErr != nil {
-		return nil, err
-	}
-
-	var decodedBody responseWrapper
-	err = json.Unmarshal(responseBody, &decodedBody)
-
-	if err != nil {
-		return nil, err
+		return resp, err
 	}
 
 	// on a sucessful request, cache the response
-	if decodedBody.Response.Status == "ok" {
-		connection.directoryCache[id] = decodedBody.Response
+	if resp.Status == "ok" {
+		connection.directoryCache[id] = *resp
 	}
 
-	return &decodedBody.Response, nil
+	return resp, nil
 }
 
 func (connection *SubsonicConnection) GetPlaylists() (*SubsonicResponse, error) {
 	query := defaultQuery(connection)
 	requestUrl := connection.Host + "/rest/getPlaylists" + "?" + query.Encode()
-	res, err := http.Get(requestUrl)
-
+	resp, err := connection.getResponse("GetPlaylists", requestUrl)
 	if err != nil {
-		return nil, err
+		return resp, err
 	}
 
-	if res.Body != nil {
-		defer res.Body.Close()
+	for i := 0; i < len(resp.Playlists.Playlists); i++ {
+		playlist := &resp.Playlists.Playlists[i]
+
+		if playlist.SongCount == 0 {
+			continue
+		}
+
+		response, err := connection.GetPlaylist(playlist.Id)
+
+		if err != nil {
+			return nil, err
+		}
+
+		playlist.Entries = response.Playlist.Entries
 	}
 
-	responseBody, readErr := ioutil.ReadAll(res.Body)
-
-	if readErr != nil {
-		return nil, err
-	}
-
-	var decodedBody responseWrapper
-	err = json.Unmarshal(responseBody, &decodedBody)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &decodedBody.Response, nil
+	return resp, nil
 }
 
 func (connection *SubsonicConnection) GetPlaylist(id string) (*SubsonicResponse, error) {
@@ -261,37 +196,18 @@ func (connection *SubsonicConnection) GetPlaylist(id string) (*SubsonicResponse,
 	query.Set("id", id)
 
 	requestUrl := connection.Host + "/rest/getPlaylist" + "?" + query.Encode()
-	res, err := http.Get(requestUrl)
-
-	if err != nil {
-		return nil, err
-	}
-
-	if res.Body != nil {
-		defer res.Body.Close()
-	}
-
-	responseBody, readErr := ioutil.ReadAll(res.Body)
-
-	if readErr != nil {
-		return nil, err
-	}
-
-	var decodedBody responseWrapper
-	err = json.Unmarshal(responseBody, &decodedBody)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &decodedBody.Response, nil
+	return connection.getResponse("GetPlaylist", requestUrl)
 }
 
 func (connection *SubsonicConnection) CreatePlaylist(name string) (*SubsonicResponse, error) {
 	query := defaultQuery(connection)
 	query.Set("name", name)
-
 	requestUrl := connection.Host + "/rest/createPlaylist" + "?" + query.Encode()
+	return connection.getResponse("GetPlaylist", requestUrl)
+}
+
+func (connection *SubsonicConnection) getResponse(caller, requestUrl string) (*SubsonicResponse, error) {
+	connection.Logger.Printf("%s %s", caller, requestUrl)
 	res, err := http.Get(requestUrl)
 
 	if err != nil {
@@ -321,45 +237,30 @@ func (connection *SubsonicConnection) CreatePlaylist(name string) (*SubsonicResp
 func (connection *SubsonicConnection) DeletePlaylist(id string) error {
 	query := defaultQuery(connection)
 	query.Set("id", id)
-
 	requestUrl := connection.Host + "/rest/deletePlaylist" + "?" + query.Encode()
+	connection.Logger.Printf("DeletePlaylist %s", requestUrl)
 	_, err := http.Get(requestUrl)
-
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 func (connection *SubsonicConnection) AddSongToPlaylist(playlistId string, songId string) error {
 	query := defaultQuery(connection)
 	query.Set("playlistId", playlistId)
 	query.Set("songIdToAdd", songId)
-
 	requestUrl := connection.Host + "/rest/updatePlaylist" + "?" + query.Encode()
+	connection.Logger.Printf("AddSongToPlaylist %s", requestUrl)
 	_, err := http.Get(requestUrl)
-
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 func (connection *SubsonicConnection) RemoveSongFromPlaylist(playlistId string, songIndex int) error {
 	query := defaultQuery(connection)
 	query.Set("playlistId", playlistId)
-	query.Set("songIndexToRemove", string(songIndex))
-
+	query.Set("songIndexToRemove", strconv.Itoa(songIndex))
 	requestUrl := connection.Host + "/rest/updatePlaylist" + "?" + query.Encode()
+	connection.Logger.Printf("RemoveSongFromPlaylist %s", requestUrl)
 	_, err := http.Get(requestUrl)
-
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 // note that this function does not make a request, it just formats the play url

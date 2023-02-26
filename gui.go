@@ -24,7 +24,9 @@ type Ui struct {
 	currentPage       *tview.TextView
 	playerStatus      *tview.TextView
 	logList           *tview.List
+	searchField       *tview.InputField
 	currentDirectory  *SubsonicDirectory
+	artistList        *tview.List
 	artistIdList      []string
 	playlists         []SubsonicPlaylist
 	connection        *SubsonicConnection
@@ -203,6 +205,47 @@ func (ui *Ui) addDirectoryToQueue(entity *SubsonicEntity) {
 	}
 }
 
+func (ui *Ui) search() {
+	name, _ := ui.pages.GetFrontPage()
+	if name != "browser" {
+		return
+	}
+	ui.searchField.SetText("")
+	ui.app.SetFocus(ui.searchField)
+}
+
+func (ui *Ui) searchNext() {
+	str := ui.searchField.GetText()
+	idxs := ui.artistList.FindItems(str, "", false, true)
+	if len(idxs) == 0 {
+		return
+	}
+	curIdx := ui.artistList.GetCurrentItem()
+	for _, nidx := range idxs {
+		if nidx > curIdx {
+			ui.artistList.SetCurrentItem(nidx)
+			return
+		}
+	}
+	ui.artistList.SetCurrentItem(idxs[0])
+}
+
+func (ui *Ui) searchPrev() {
+	str := ui.searchField.GetText()
+	idxs := ui.artistList.FindItems(str, "", false, true)
+	if len(idxs) == 0 {
+		return
+	}
+	curIdx := ui.artistList.GetCurrentItem()
+	for nidx := len(idxs) - 1; nidx >= 0; nidx-- {
+		if idxs[nidx] < curIdx {
+			ui.artistList.SetCurrentItem(idxs[nidx])
+			return
+		}
+	}
+	ui.artistList.SetCurrentItem(idxs[len(idxs)-1])
+}
+
 func (ui *Ui) addSongToQueue(entity *SubsonicEntity) {
 	uri := ui.connection.GetPlayUrl(entity)
 
@@ -338,32 +381,56 @@ func createUi(indexes *[]SubsonicIndex, playlists *[]SubsonicPlaylist, connectio
 
 func (ui *Ui) createBrowserPage(titleFlex *tview.Flex, indexes *[]SubsonicIndex) (*tview.Flex, tview.Primitive) {
 	// artist list, used to map the index of
-	artistList := tview.NewList().ShowSecondaryText(false)
+	ui.artistList = tview.NewList().ShowSecondaryText(false)
 	for _, index := range *indexes {
 		for _, artist := range index.Artists {
-			artistList.AddItem(artist.Name, "", 0, nil)
+			ui.artistList.AddItem(artist.Name, "", 0, nil)
 			ui.artistIdList = append(ui.artistIdList, artist.Id)
 		}
 	}
 
+	ui.searchField = tview.NewInputField().
+		SetLabel("Search:").
+		SetChangedFunc(func(s string) {
+			idxs := ui.artistList.FindItems(s, "", false, true)
+			if len(idxs) == 0 {
+				return
+			}
+			ui.artistList.SetCurrentItem(idxs[0])
+		}).SetDoneFunc(func(key tcell.Key) {
+		ui.app.SetFocus(ui.artistList)
+	})
+
 	artistFlex := tview.NewFlex().SetDirection(tview.FlexColumn).
-		AddItem(artistList, 0, 1, true).
+		AddItem(ui.artistList, 0, 1, true).
 		AddItem(ui.entityList, 0, 1, false)
 
 	browserFlex := tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(titleFlex, 1, 0, false).
-		AddItem(artistFlex, 0, 1, true)
+		AddItem(artistFlex, 0, 1, true).
+		AddItem(ui.searchField, 1, 0, false)
 
 	// going right from the artist list should focus the album/song list
-	artistList.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+	ui.artistList.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyRight {
 			ui.app.SetFocus(ui.entityList)
+			return nil
+		}
+		switch event.Rune() {
+		case '/':
+			ui.search()
+			return nil
+		case 'n':
+			ui.searchNext()
+			return nil
+		case 'N':
+			ui.searchPrev()
 			return nil
 		}
 		return event
 	})
 
-	artistList.SetChangedFunc(func(index int, _ string, _ string, _ rune) {
+	ui.artistList.SetChangedFunc(func(index int, _ string, _ string, _ rune) {
 		ui.handleEntitySelected(ui.artistIdList[index])
 	})
 
@@ -397,7 +464,7 @@ func (ui *Ui) createBrowserPage(titleFlex *tview.Flex, indexes *[]SubsonicIndex)
 
 	ui.entityList.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyLeft {
-			ui.app.SetFocus(artistList)
+			ui.app.SetFocus(ui.artistList)
 			return nil
 		}
 		if event.Rune() == 'a' {
@@ -425,6 +492,9 @@ func (ui *Ui) createQueuePage(titleFlex *tview.Flex) *tview.Flex {
 		if event.Key() == tcell.KeyDelete || event.Rune() == 'd' {
 			ui.handleDeleteFromQueue()
 			return nil
+		}
+		switch event.Rune() {
+		case 'n':
 		}
 
 		return event
@@ -569,7 +639,8 @@ func InitGui(indexes *[]SubsonicIndex, playlists *[]SubsonicPlaylist, connection
 
 	ui.pages.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		// we don't want any of these firing if we're trying to add a new playlist
-		if ui.app.GetFocus() == ui.newPlaylistInput {
+		focused := ui.app.GetFocus()
+		if focused == ui.newPlaylistInput || focused == ui.searchField {
 			return event
 		}
 

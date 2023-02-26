@@ -62,3 +62,6 @@ host = 'https://your-subsonic-host.tld'
 * a - add album or song to queue
 * p - play/pause
 * -/= volume down/volume up
+* / - Search artists
+* n - Continue search forward
+* N - Continue search backwards

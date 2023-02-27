@@ -109,6 +109,9 @@ func (ui *Ui) handleDeleteFromQueue() {
 
 func (ui *Ui) handleAddEntityToQueue() {
 	currentIndex := ui.entityList.GetCurrentItem()
+	if currentIndex+1 < ui.entityList.GetItemCount() {
+		ui.entityList.SetCurrentItem(currentIndex + 1)
+	}
 
 	// if we have a parent directory subtract 1 to account for the [..]
 	// which would be index 0 in that case with index 1 being the first entity
@@ -127,12 +130,16 @@ func (ui *Ui) handleAddEntityToQueue() {
 	} else {
 		ui.addSongToQueue(&entity)
 	}
+
 	updateQueueList(ui.player, ui.queueList)
 }
 
 func (ui *Ui) handleAddPlaylistSongToQueue() {
 	playlistIndex := ui.playlistList.GetCurrentItem()
 	entityIndex := ui.selectedPlaylist.GetCurrentItem()
+	if entityIndex+1 < ui.selectedPlaylist.GetItemCount() {
+		ui.selectedPlaylist.SetCurrentItem(entityIndex + 1)
+	}
 
 	// TODO add some bounds checking here
 	if playlistIndex == -1 || entityIndex == -1 {
@@ -141,17 +148,22 @@ func (ui *Ui) handleAddPlaylistSongToQueue() {
 
 	entity := ui.playlists[playlistIndex].Entries[entityIndex]
 	ui.addSongToQueue(&entity)
+
 	updateQueueList(ui.player, ui.queueList)
 }
 
 func (ui *Ui) handleAddPlaylistToQueue() {
 	currentIndex := ui.playlistList.GetCurrentItem()
+	if currentIndex+1 < ui.playlistList.GetItemCount() {
+		ui.playlistList.SetCurrentItem(currentIndex + 1)
+	}
 
 	playlist := ui.playlists[currentIndex]
 
 	for _, entity := range playlist.Entries {
 		ui.addSongToQueue(&entity)
 	}
+
 	updateQueueList(ui.player, ui.queueList)
 }
 
@@ -186,6 +198,10 @@ func (ui *Ui) handleAddSongToPlaylist(playlist *SubsonicPlaylist) {
 	for _, playlist := range ui.playlists {
 		ui.playlistList.AddItem(playlist.Name, "", 0, nil)
 		ui.addToPlaylistList.AddItem(playlist.Name, "", 0, nil)
+	}
+
+	if currentIndex+1 < ui.entityList.GetItemCount() {
+		ui.entityList.SetCurrentItem(currentIndex + 1)
 	}
 }
 
@@ -492,9 +508,6 @@ func (ui *Ui) createQueuePage(titleFlex *tview.Flex) *tview.Flex {
 		if event.Key() == tcell.KeyDelete || event.Rune() == 'd' {
 			ui.handleDeleteFromQueue()
 			return nil
-		}
-		switch event.Rune() {
-		case 'n':
 		}
 
 		return event

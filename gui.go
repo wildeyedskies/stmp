@@ -326,7 +326,7 @@ func (ui *Ui) makeEntityHandler(directoryId string) func() {
 	}
 }
 
-func createUi(indexes *[]SubsonicIndex, playlists *[]SubsonicPlaylist, connection *SubsonicConnection) *Ui {
+func createUi(indexes *[]SubsonicIndex, playlists *[]SubsonicPlaylist, connection *SubsonicConnection, player *Player) *Ui {
 	app := tview.NewApplication()
 	pages := tview.NewPages()
 	// list of entities
@@ -356,7 +356,6 @@ func createUi(indexes *[]SubsonicIndex, playlists *[]SubsonicPlaylist, connectio
 		SetLabel("Playlist name:").
 		SetFieldWidth(50)
 	logs := tview.NewList().ShowSecondaryText(false)
-	player, err := InitPlayer()
 	var currentDirectory *SubsonicDirectory
 	var artistIdList []string
 
@@ -378,11 +377,6 @@ func createUi(indexes *[]SubsonicIndex, playlists *[]SubsonicPlaylist, connectio
 		playlists:         *playlists,
 		connection:        connection,
 		player:            player,
-	}
-
-	if err != nil {
-		app.Stop()
-		fmt.Println("Unable to initialize mpv. Is mpv installed?")
 	}
 
 	go func() {
@@ -624,8 +618,8 @@ func (ui *Ui) createLogPage(titleFlex *tview.Flex) *tview.Flex {
 	return logFlex
 }
 
-func InitGui(indexes *[]SubsonicIndex, playlists *[]SubsonicPlaylist, connection *SubsonicConnection) *Ui {
-	ui := createUi(indexes, playlists, connection)
+func InitGui(indexes *[]SubsonicIndex, playlists *[]SubsonicPlaylist, connection *SubsonicConnection, player *Player) *Ui {
+	ui := createUi(indexes, playlists, connection, player)
 
 	// create components shared by pages
 

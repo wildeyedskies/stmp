@@ -136,6 +136,14 @@ func (p *Player) AdjustVolume(increment int64) error {
 	return p.Instance.SetProperty("volume", mpv.FORMAT_INT64, nevVolume)
 }
 
+func (p *Player) Volume() (int64, error) {
+	volume, err := p.Instance.GetProperty("volume", mpv.FORMAT_INT64)
+	if err != nil {
+		return -1, err
+	}
+	return volume.(int64), nil
+}
+
 func (p *Player) Seek(increment int) error {
 	return p.Instance.Command([]string{"seek", strconv.Itoa(increment)})
 }

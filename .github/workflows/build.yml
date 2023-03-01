@@ -27,8 +27,8 @@ jobs:
           go get .
           go build .
 
-      - name: Upload
-        uses: actions/upload-artifact@v3
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
         with:
-          name: stmp-linux-amd64
-          path: stmp
+          files: stmp

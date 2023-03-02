@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 
@@ -17,7 +18,7 @@ func readConfig() {
 	err := viper.ReadInConfig()
 
 	if err != nil {
-		fmt.Println("Config file error: %s \n", err)
+		fmt.Printf("Config file error: %s \n", err)
 		os.Exit(1)
 	}
 
@@ -28,18 +29,62 @@ func readConfig() {
 	}
 }
 
+type Logger struct {
+	prints chan string
+}
+
+func (l Logger) Printf(s string, as ...interface{}) {
+	l.prints <- fmt.Sprintf(s, as...)
+}
+
 func main() {
+	help := flag.Bool("help", false, "Print usage")
+	enableMpris := flag.Bool("mpris", false, "Enable MPRIS2")
+	flag.Parse()
+	if *help {
+		fmt.Printf("USAGE: %s <args>\n", os.Args[0])
+		flag.Usage()
+		os.Exit(0)
+	}
+
 	readConfig()
+
+	logger := Logger{make(chan string, 100)}
 
 	connection := &SubsonicConnection{
 		Username:       viper.GetString("auth.username"),
 		Password:       viper.GetString("auth.password"),
 		Host:           viper.GetString("server.host"),
+		Logger:         logger,
 		directoryCache: make(map[string]SubsonicResponse),
 	}
 
-	indexResponse, _ := connection.GetIndexes()
-	playlistResponse, _ := connection.GetPlaylists()
+	indexResponse, err := connection.GetIndexes()
+	if err != nil {
+		fmt.Printf("Error fetching indexes from server: %s\n", err)
+		os.Exit(1)
+	}
+	playlistResponse, err := connection.GetPlaylists()
+	if err != nil {
+		fmt.Printf("Error fetching indexes from server: %s\n", err)
+		os.Exit(1)
+	}
 
-	InitGui(&indexResponse.Indexes.Index, &playlistResponse.Playlists.Playlists, connection)
+	player, err := InitPlayer()
+	if err != nil {
+		fmt.Println("Unable to initialize mpv. Is mpv installed?")
+		os.Exit(1)
+	}
+
+	if *enableMpris {
+		mpris, err := RegisterPlayer(player, logger)
+		if err != nil {
+			fmt.Printf("Unable to register MPRIS with DBUS: %s\n", err)
+			fmt.Println("Try running without MPRIS")
+			os.Exit(1)
+		}
+		defer mpris.Close()
+	}
+
+	InitGui(&indexResponse.Indexes.Index, &playlistResponse.Playlists.Playlists, connection, player)
 }

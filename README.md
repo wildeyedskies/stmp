@@ -56,9 +56,14 @@ host = 'https://your-subsonic-host.tld'
 
 * 1 - folder view
 * 2 - queue view
+* 3 - playlist view
+* 4 - log (errors, etc) view
 * enter - play song (clears current queue)
 * d/delete - remove currently selected song from the queue
 * D - remove all songs from queue
 * a - add album or song to queue
 * p - play/pause
 * -/= volume down/volume up
+* / - Search artists
+* n - Continue search forward
+* N - Continue search backwards

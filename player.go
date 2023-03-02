@@ -2,12 +2,14 @@ package main
 
 import (
 	"github.com/wildeyedskies/go-mpv/mpv"
+	"strconv"
 )
 
 const (
-	PlayerStopped = 0
-	PlayerPlaying = 1
-	PlayerPaused  = 2
+	PlayerStopped = iota
+	PlayerPlaying
+	PlayerPaused
+	PlayerError
 )
 
 type QueueItem struct {
@@ -48,62 +50,79 @@ func InitPlayer() (*Player, error) {
 		return nil, err
 	}
 
-	return &Player{mpvInstance, eventListener(mpvInstance), nil, false}, nil
+	return &Player{mpvInstance, eventListener(mpvInstance), make([]QueueItem, 0), false}, nil
 }
 
-func (p *Player) PlayNextTrack() {
+func (p *Player) PlayNextTrack() error {
 	if len(p.Queue) > 0 {
-		p.Instance.Command([]string{"loadfile", p.Queue[0].Uri})
+		return p.Instance.Command([]string{"loadfile", p.Queue[0].Uri})
 	}
+	return nil
 }
 
-func (p *Player) Play(uri string, title string, artist string, duration int) {
-	p.Queue = []QueueItem{QueueItem{uri, title, artist, duration}}
+func (p *Player) Play(uri string, title string, artist string, duration int) error {
+	p.Queue = []QueueItem{{uri, title, artist, duration}}
 	p.ReplaceInProgress = true
-	p.Instance.Command([]string{"loadfile", uri})
+	if ip, e := p.IsPaused(); ip && e == nil {
+		p.Pause()
+	}
+	return p.Instance.Command([]string{"loadfile", uri})
 }
 
-func (p *Player) Stop() {
-	p.Instance.Command([]string{"stop"})
+func (p *Player) Stop() error {
+	return p.Instance.Command([]string{"stop"})
 }
 
-func (p *Player) IsSongLoaded() bool {
-	idle, _ := p.Instance.GetProperty("idle-active", mpv.FORMAT_FLAG)
-	return !idle.(bool)
+func (p *Player) IsSongLoaded() (bool, error) {
+	idle, err := p.Instance.GetProperty("idle-active", mpv.FORMAT_FLAG)
+	return !idle.(bool), err
 }
 
-func (p *Player) IsPaused() bool {
-	pause, _ := p.Instance.GetProperty("pause", mpv.FORMAT_FLAG)
-	return pause.(bool)
+func (p *Player) IsPaused() (bool, error) {
+	pause, err := p.Instance.GetProperty("pause", mpv.FORMAT_FLAG)
+	return pause.(bool), err
 }
 
-func (p *Player) Pause() int {
-	loaded := p.IsSongLoaded()
-	pause := p.IsPaused()
+// Pause toggles playing music
+// If a song is playing, it is paused. If a song is paused, playing resumes. The
+// state after the toggle is returned, or an error.
+func (p *Player) Pause() (int, error) {
+	loaded, err := p.IsSongLoaded()
+	if err != nil {
+		return PlayerError, err
+	}
+	pause, err := p.IsPaused()
+	if err != nil {
+		return PlayerError, err
+	}
 
 	if loaded {
-		if pause {
-			p.Instance.SetProperty("pause", mpv.FORMAT_FLAG, false)
-			return PlayerPlaying
-		} else {
-			p.Instance.SetProperty("pause", mpv.FORMAT_FLAG, true)
-			return PlayerPaused
+		err := p.Instance.Command([]string{"cycle", "pause"})
+		if err != nil {
+			return PlayerError, err
 		}
+		if pause {
+			return PlayerPlaying, nil
+		}
+		return PlayerPaused, nil
 	} else {
 		if len(p.Queue) != 0 {
-			p.Instance.Command([]string{"loadfile", p.Queue[0].Uri})
-			return PlayerPlaying
+			err := p.Instance.Command([]string{"loadfile", p.Queue[0].Uri})
+			return PlayerPlaying, err
 		} else {
-			return PlayerStopped
+			return PlayerStopped, nil
 		}
 	}
 }
 
-func (p *Player) AdjustVolume(increment int64) {
-	volume, _ := p.Instance.GetProperty("volume", mpv.FORMAT_INT64)
+func (p *Player) AdjustVolume(increment int64) error {
+	volume, err := p.Instance.GetProperty("volume", mpv.FORMAT_INT64)
+	if err != nil {
+		return err
+	}
 
 	if volume == nil {
-		return
+		return nil
 	}
 
 	nevVolume := volume.(int64) + increment
@@ -114,5 +133,17 @@ func (p *Player) AdjustVolume(increment int64) {
 		nevVolume = 0
 	}
 
-	p.Instance.SetProperty("volume", mpv.FORMAT_INT64, nevVolume)
+	return p.Instance.SetProperty("volume", mpv.FORMAT_INT64, nevVolume)
+}
+
+func (p *Player) Volume() (int64, error) {
+	volume, err := p.Instance.GetProperty("volume", mpv.FORMAT_INT64)
+	if err != nil {
+		return -1, err
+	}
+	return volume.(int64), nil
+}
+
+func (p *Player) Seek(increment int) error {
+	return p.Instance.Command([]string{"seek", strconv.Itoa(increment)})
 }

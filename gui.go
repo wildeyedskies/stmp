@@ -310,7 +310,7 @@ func (ui *Ui) deletePlaylist(index int) {
 
 	ui.playlistList.RemoveItem(index)
 	ui.addToPlaylistList.RemoveItem(index)
-	ui.connection.DeletePlaylist(playlist.Id)
+	ui.connection.DeletePlaylist(string(playlist.Id))
 }
 
 func makeSongHandler(uri string, title string, artist string, duration int, player *Player, queueList *tview.List) func() {

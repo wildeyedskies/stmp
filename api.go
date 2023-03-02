@@ -179,7 +179,7 @@ func (connection *SubsonicConnection) GetPlaylists() (*SubsonicResponse, error) 
 			continue
 		}
 
-		response, err := connection.GetPlaylist(playlist.Id)
+		response, err := connection.GetPlaylist(string(playlist.Id))
 
 		if err != nil {
 			return nil, err

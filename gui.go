@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"math"
-	"strconv"
 	"strings"
 
 	"github.com/gdamore/tcell/v2"
@@ -161,7 +160,7 @@ func handleAddSongToPlaylist(ui *Ui, playlist *SubsonicPlaylist) {
 	entity := ui.currentDirectory.Entities[currentIndex]
 
 	if !entity.IsDirectory {
-		ui.connection.AddSongToPlaylist(strconv.Itoa(playlist.Id), entity.Id)
+		ui.connection.AddSongToPlaylist(string(playlist.Id), entity.Id)
 	}
 	//TODO update the playlists
 }

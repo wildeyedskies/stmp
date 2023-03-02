@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"net/http"
 	"net/url"
+	"strconv"
 )
 
 // used for generating salt
@@ -93,7 +94,7 @@ type SubsonicPlaylists struct {
 }
 
 type SubsonicPlaylist struct {
-	Id        int              `json:"id"`
+	Id        SubsonicId       `json:"id"`
 	Name      string           `json:"name"`
 	SongCount int              `json:"songCount"`
 	Entries   []SubsonicEntity `json:"entry"`
@@ -111,6 +112,21 @@ type SubsonicResponse struct {
 
 type responseWrapper struct {
 	Response SubsonicResponse `json:"subsonic-response"`
+}
+
+type SubsonicId string
+
+func (si *SubsonicId) UnmarshalJSON(b []byte) error {
+	if b[0] == '"' {
+		return json.Unmarshal(b, (*string)(si))
+	}
+	var i int
+	if err := json.Unmarshal(b, &i); err != nil {
+		return err
+	}
+	s := strconv.Itoa(i)
+	*si = SubsonicId(s)
+	return nil
 }
 
 // requests

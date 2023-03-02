@@ -1,3 +1,7 @@
+[![stmp](https://img.shields.io/aur/version/stmp)](https://aur.archlinux.org/packages/stmp/)
+[![stmp-git](https://img.shields.io/aur/version/stmp-git)](https://aur.archlinux.org/packages/stmp-git/)
+[![GitHub license](https://img.shields.io/github/license/wildeyedskies/stmp)](https://github.com/wildeyedskies/stmp/blob/main/LICENSE)
+
 # STMP (subsonic terminal music player)
 
 A terminal client for *sonic music servers. Inspired by ncmpcpp.

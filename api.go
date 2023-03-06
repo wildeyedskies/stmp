@@ -66,7 +66,7 @@ type SubsonicDirectory struct {
 	Id       string           `json:"id"`
 	Parent   string           `json:"parent"`
 	Name     string           `json:"name"`
-	Entities []SubsonicEntity `json:"child"`
+	Entities SubsonicEntities `json:"child"`
 }
 
 type SubsonicEntity struct {
@@ -79,6 +79,29 @@ type SubsonicEntity struct {
 	Track       int    `json:"track"`
 	DiskNumber  int    `json:"diskNumber"`
 	Path        string `json:"path"`
+}
+
+// SubsonicEntities is a sortable list of entities.
+// Directories are first, then in alphabelical order. Entities are sorted by
+// track number, if they have track numbers; otherwise, they're sorted
+// alphabetically.
+type SubsonicEntities []SubsonicEntity
+
+func (s SubsonicEntities) Len() int      { return len(s) }
+func (s SubsonicEntities) Swap(i, j int) { s[j], s[i] = s[i], s[j] }
+func (s SubsonicEntities) Less(i, j int) bool {
+	// Directories are before tracks, alphabetically
+	if s[i].IsDirectory {
+		if s[j].IsDirectory {
+			return s[i].Title < s[j].Title
+		}
+		return true
+	}
+	// If the tracks are the same, sort alphabetically
+	if s[i].Track == s[j].Track {
+		return s[i].Title < s[j].Title
+	}
+	return s[i].Track < s[j].Track
 }
 
 type SubsonicIndexes struct {
@@ -98,7 +121,7 @@ type SubsonicPlaylist struct {
 	Id        SubsonicId       `json:"id"`
 	Name      string           `json:"name"`
 	SongCount int              `json:"songCount"`
-	Entries   []SubsonicEntity `json:"entry"`
+	Entries   SubsonicEntities `json:"entry"`
 }
 
 type SubsonicResponse struct {

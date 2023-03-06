@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"math"
+	"sort"
 	"strings"
 
 	"github.com/gdamore/tcell/v2"
@@ -35,6 +36,7 @@ type Ui struct {
 
 func (ui *Ui) handleEntitySelected(directoryId string) {
 	response, err := ui.connection.GetMusicDirectory(directoryId)
+	sort.Sort(response.Directory.Entities)
 	if err != nil {
 		ui.logList.AddItem(fmt.Sprintf("handleEntitySelected: GetMusicDirectory %s -- %s", directoryId, err.Error()), "", 0, nil)
 	}
@@ -212,6 +214,7 @@ func (ui *Ui) addDirectoryToQueue(entity *SubsonicEntity) {
 		return
 	}
 
+	sort.Sort(response.Directory.Entities)
 	for _, e := range response.Directory.Entities {
 		if e.IsDirectory {
 			ui.addDirectoryToQueue(&e)

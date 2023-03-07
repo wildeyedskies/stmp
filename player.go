@@ -1,8 +1,10 @@
 package main
 
 import (
-	"github.com/wildeyedskies/go-mpv/mpv"
 	"strconv"
+	"sync"
+
+	"github.com/wildeyedskies/go-mpv/mpv"
 )
 
 const (
@@ -23,6 +25,7 @@ type Player struct {
 	Instance          *mpv.Mpv
 	EventChannel      chan *mpv.Event
 	Queue             []QueueItem
+	QueueLock         sync.RWMutex
 	ReplaceInProgress bool
 }
 
@@ -50,10 +53,18 @@ func InitPlayer() (*Player, error) {
 		return nil, err
 	}
 
-	return &Player{mpvInstance, eventListener(mpvInstance), make([]QueueItem, 0), false}, nil
+	return &Player{
+		Instance:          mpvInstance,
+		EventChannel:      eventListener(mpvInstance),
+		Queue:             make([]QueueItem, 0),
+		QueueLock:         sync.RWMutex{},
+		ReplaceInProgress: false,
+	}, nil
 }
 
 func (p *Player) PlayNextTrack() error {
+	p.QueueLock.RLock()
+	defer p.QueueLock.RUnlock()
 	if len(p.Queue) > 0 {
 		return p.Instance.Command([]string{"loadfile", p.Queue[0].Uri})
 	}
@@ -61,6 +72,8 @@ func (p *Player) PlayNextTrack() error {
 }
 
 func (p *Player) Play(uri string, title string, artist string, duration int) error {
+	p.QueueLock.Lock()
+	defer p.QueueLock.Unlock()
 	p.Queue = []QueueItem{{uri, title, artist, duration}}
 	p.ReplaceInProgress = true
 	if ip, e := p.IsPaused(); ip && e == nil {
@@ -106,6 +119,8 @@ func (p *Player) Pause() (int, error) {
 		}
 		return PlayerPaused, nil
 	} else {
+		p.QueueLock.RLock()
+		defer p.QueueLock.RUnlock()
 		if len(p.Queue) != 0 {
 			err := p.Instance.Command([]string{"loadfile", p.Queue[0].Uri})
 			return PlayerPlaying, err

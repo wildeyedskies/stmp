@@ -86,5 +86,5 @@ func main() {
 		defer mpris.Close()
 	}
 
-	InitGui(&indexResponse.Indexes.Index, &playlistResponse.Playlists.Playlists, connection, player)
+	InitGui(&indexResponse.Indexes.Index, &playlistResponse.Playlists.Playlists, connection, player, logger)
 }

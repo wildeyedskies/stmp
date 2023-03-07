@@ -80,8 +80,9 @@ func (ui *Ui) handlePlaylistSelected(playlist SubsonicPlaylist) {
 }
 
 func (ui *Ui) handleDeleteFromQueue() {
+	ui.player.QueueLock.Lock()
+	defer ui.player.QueueLock.Unlock()
 	currentIndex := ui.queueList.GetCurrentItem()
-	queue := ui.player.Queue
 
 	if currentIndex == -1 || len(ui.player.Queue) < currentIndex {
 		return
@@ -101,7 +102,7 @@ func (ui *Ui) handleDeleteFromQueue() {
 
 	// remove the item from the queue
 	if len(ui.player.Queue) > 1 {
-		ui.player.Queue = append(queue[:currentIndex], queue[currentIndex+1:]...)
+		ui.player.Queue = append(ui.player.Queue[:currentIndex], ui.player.Queue[currentIndex+1:]...)
 	} else {
 		ui.player.Queue = make([]QueueItem, 0)
 	}
@@ -281,7 +282,9 @@ func (ui *Ui) addSongToQueue(entity *SubsonicEntity) {
 		artist,
 		entity.Duration,
 	}
+	ui.player.QueueLock.Lock()
 	ui.player.Queue = append(ui.player.Queue, queueItem)
+	ui.player.QueueLock.Unlock()
 }
 
 func (ui *Ui) newPlaylist(name string) {
@@ -385,7 +388,9 @@ func createUi(indexes *[]SubsonicIndex, playlists *[]SubsonicPlaylist, connectio
 	go func() {
 		select {
 		case msg := <-connection.Logger.prints:
-			ui.logList.AddItem(msg, "", 0, nil)
+			ui.app.QueueUpdate(func() {
+				ui.logList.AddItem(msg, "", 0, nil)
+			})
 		}
 	}()
 
@@ -621,7 +626,7 @@ func (ui *Ui) createLogPage(titleFlex *tview.Flex) *tview.Flex {
 	return logFlex
 }
 
-func InitGui(indexes *[]SubsonicIndex, playlists *[]SubsonicPlaylist, connection *SubsonicConnection, player *Player) *Ui {
+func InitGui(indexes *[]SubsonicIndex, playlists *[]SubsonicPlaylist, connection *SubsonicConnection, player *Player, logger Logger) *Ui {
 	ui := createUi(indexes, playlists, connection, player)
 
 	// create components shared by pages
@@ -638,7 +643,7 @@ func InitGui(indexes *[]SubsonicIndex, playlists *[]SubsonicPlaylist, connection
 	logListFlex := ui.createLogPage(titleFlex)
 
 	// handle
-	go ui.handleMpvEvents()
+	go ui.handleMpvEvents(logger)
 
 	ui.pages.AddPage("browser", browserFlex, true, true).
 		AddPage("queue", queueFlex, true, false).
@@ -672,7 +677,9 @@ func InitGui(indexes *[]SubsonicIndex, playlists *[]SubsonicPlaylist, connection
 			ui.player.Instance.TerminateDestroy()
 			ui.app.Stop()
 		case 'D':
+			ui.player.QueueLock.Lock()
 			ui.player.Queue = make([]QueueItem, 0)
+			ui.player.QueueLock.Unlock()
 			err := ui.player.Stop()
 			if err != nil {
 				ui.logList.AddItem(fmt.Sprintf("InitGui: Stop -- %s", err.Error()), "", 0, nil)
@@ -688,7 +695,9 @@ func InitGui(indexes *[]SubsonicIndex, playlists *[]SubsonicPlaylist, connection
 			if status == PlayerStopped {
 				ui.startStopStatus.SetText("[::b]stmp: [red]stopped")
 			} else if status == PlayerPlaying {
+				ui.player.QueueLock.RLock()
 				ui.startStopStatus.SetText("[::b]stmp: [green]playing " + ui.player.Queue[0].Title)
+				ui.player.QueueLock.RUnlock()
 			} else if status == PlayerPaused {
 				ui.startStopStatus.SetText("[::b]stmp: [yellow]paused")
 			}
@@ -729,13 +738,15 @@ func InitGui(indexes *[]SubsonicIndex, playlists *[]SubsonicPlaylist, connection
 
 func updateQueueList(player *Player, queueList *tview.List) {
 	queueList.Clear()
+	player.QueueLock.RLock()
 	for _, queueItem := range player.Queue {
 		min, sec := iSecondsToMinAndSec(queueItem.Duration)
 		queueList.AddItem(fmt.Sprintf("%s - %s - %02d:%02d", queueItem.Title, queueItem.Artist, min, sec), "", 0, nil)
 	}
+	player.QueueLock.RUnlock()
 }
 
-func (ui *Ui) handleMpvEvents() {
+func (ui *Ui) handleMpvEvents(logger Logger) {
 	ui.player.Instance.ObserveProperty(0, "time-pos", mpv.FORMAT_DOUBLE)
 	ui.player.Instance.ObserveProperty(0, "duration", mpv.FORMAT_DOUBLE)
 	ui.player.Instance.ObserveProperty(0, "volume", mpv.FORMAT_INT64)
@@ -745,42 +756,55 @@ func (ui *Ui) handleMpvEvents() {
 			break
 			// we don't want to update anything if we're in the process of replacing the current track
 		} else if e.Event_Id == mpv.EVENT_END_FILE && !ui.player.ReplaceInProgress {
-			ui.startStopStatus.SetText("[::b]stmp: [red]stopped")
+			// Writing to text views is thread-safe
+			fmt.Fprint(ui.startStopStatus, "[::b]stmp: [red]stopped")
 			// TODO it's gross that this is here, need better event handling
+			ui.player.QueueLock.Lock()
 			if len(ui.player.Queue) > 0 {
 				ui.player.Queue = ui.player.Queue[1:]
 			}
-			updateQueueList(ui.player, ui.queueList)
+			ui.player.QueueLock.Unlock()
+			ui.app.QueueUpdate(func() {
+				updateQueueList(ui.player, ui.queueList)
+			})
 			err := ui.player.PlayNextTrack()
 			if err != nil {
-				ui.logList.AddItem(fmt.Sprintf("handleMoveEvents: PlayNextTrack -- %s", err.Error()), "", 0, nil)
+				logger.Printf("handleMoveEvents: PlayNextTrack -- %s", err.Error())
 			}
 		} else if e.Event_Id == mpv.EVENT_START_FILE {
 			ui.player.ReplaceInProgress = false
-			ui.startStopStatus.SetText("[::b]stmp: [green]playing " + ui.player.Queue[0].Title)
-			updateQueueList(ui.player, ui.queueList)
+			ui.player.QueueLock.RLock()
+			fmt.Fprintf(ui.startStopStatus, "[::b]stmp: [green]playing %s", ui.player.Queue[0].Title)
+			ui.player.QueueLock.RUnlock()
+			ui.app.QueueUpdate(func() {
+				updateQueueList(ui.player, ui.queueList)
+			})
 		} else if e.Event_Id == mpv.EVENT_IDLE || e.Event_Id == mpv.EVENT_NONE {
 			continue
 		} else if e.Event_Id != mpv.EVENT_PROPERTY_CHANGE {
 			var qi QueueItem
+			ui.player.QueueLock.RLock()
 			if len(ui.player.Queue) > 0 {
 				qi = ui.player.Queue[0]
 			}
-			ui.logList.AddItem(fmt.Sprintf("Player event %s - %s", e.Event_Id.String(), qi.Uri), "", 0, nil)
+			ui.player.QueueLock.RUnlock()
+			ui.app.QueueUpdate(func() {
+				ui.logList.AddItem(fmt.Sprintf("Player event %s - %s", e.Event_Id.String(), qi.Uri), "", 0, nil)
+			})
 		}
 
 		position, err := ui.player.Instance.GetProperty("time-pos", mpv.FORMAT_DOUBLE)
 		if err != nil {
-			ui.logList.AddItem(fmt.Sprintf("handleMoveEvents (%s): GetProperty %s -- %s", e.Event_Id.String(), "time-pos", err.Error()), "", 0, nil)
+			logger.Printf("handleMoveEvents (%s): GetProperty %s -- %s", e.Event_Id.String(), "time-pos", err.Error())
 		}
 		// TODO only update these as needed
 		duration, err := ui.player.Instance.GetProperty("duration", mpv.FORMAT_DOUBLE)
 		if err != nil {
-			ui.logList.AddItem(fmt.Sprintf("handleMoveEvents (%s): GetProperty %s -- %s", e.Event_Id.String(), "duration", err.Error()), "", 0, nil)
+			logger.Printf("handleMoveEvents (%s): GetProperty %s -- %s", e.Event_Id.String(), "duration", err.Error())
 		}
 		volume, err := ui.player.Instance.GetProperty("volume", mpv.FORMAT_INT64)
 		if err != nil {
-			ui.logList.AddItem(fmt.Sprintf("handleMoveEvents (%s): GetProperty %s -- %s", e.Event_Id.String(), "volume", err.Error()), "", 0, nil)
+			logger.Printf("handleMoveEvents (%s): GetProperty %s -- %s", e.Event_Id.String(), "volume", err.Error())
 		}
 
 		if position == nil {
@@ -795,7 +819,7 @@ func (ui *Ui) handleMpvEvents() {
 			volume = 0
 		}
 
-		ui.playerStatus.SetText(formatPlayerStatus(volume.(int64), position.(float64), duration.(float64)))
+		formatPlayerStatus(ui.playerStatus, volume.(int64), position.(float64), duration.(float64))
 		ui.app.Draw()
 	}
 }
@@ -807,7 +831,7 @@ func makeModal(p tview.Primitive, width, height int) tview.Primitive {
 		AddItem(p, 1, 1, 1, 1, 0, 0, true)
 }
 
-func formatPlayerStatus(volume int64, position float64, duration float64) string {
+func formatPlayerStatus(text *tview.TextView, volume int64, position float64, duration float64) {
 	if position < 0 {
 		position = 0.0
 	}
@@ -819,8 +843,7 @@ func formatPlayerStatus(volume int64, position float64, duration float64) string
 	positionMin, positionSec := secondsToMinAndSec(position)
 	durationMin, durationSec := secondsToMinAndSec(duration)
 
-	return fmt.Sprintf("[::b][%d%%][%02d:%02d/%02d:%02d]", volume,
-		positionMin, positionSec, durationMin, durationSec)
+	fmt.Fprintf(text, "[::b][%d%%][%02d:%02d/%02d:%02d]", volume, positionMin, positionSec, durationMin, durationSec)
 }
 
 func secondsToMinAndSec(seconds float64) (int, int) {

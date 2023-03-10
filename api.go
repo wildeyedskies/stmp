@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/md5"
 	"encoding/json"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"time"
 )
 
 // used for generating salt
@@ -176,9 +178,8 @@ func (connection *SubsonicConnection) GetMusicDirectory(id string) (*SubsonicRes
 	requestUrl := connection.Host + "/rest/getMusicDirectory" + "?" + query.Encode()
 	resp, err := connection.getResponse("GetMusicDirectory", requestUrl)
 	if err != nil {
-		return resp, err
+		return nil, err
 	}
-
 	// on a sucessful request, cache the response
 	if resp.Status == "ok" {
 		connection.directoryCache[id] = *resp
@@ -230,31 +231,44 @@ func (connection *SubsonicConnection) CreatePlaylist(name string) (*SubsonicResp
 }
 
 func (connection *SubsonicConnection) getResponse(caller, requestUrl string) (*SubsonicResponse, error) {
-	connection.Logger.Printf("%s %s", caller, requestUrl)
-	res, err := http.Get(requestUrl)
-
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+	respChan := make(chan *SubsonicResponse)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestUrl, nil)
 	if err != nil {
 		return nil, err
 	}
+	go func() {
+		var res *http.Response
+		res, err = http.DefaultClient.Do(req)
+		if err != nil {
+			return
+		}
+		if res.Body != nil {
+			defer res.Body.Close()
+		}
+		var responseBody []byte
+		responseBody, err = ioutil.ReadAll(res.Body)
+		if err != nil {
+			return
+		}
+		var decodedBody responseWrapper
+		err = json.Unmarshal(responseBody, &decodedBody)
+		if err != nil {
+			return
+		}
+		respChan <- &decodedBody.Response
+	}()
+	select {
+	case <-ctx.Done():
+		if err != nil {
+			return nil, err
+		}
+		return nil, fmt.Errorf("Request timed out: %s", requestUrl)
 
-	if res.Body != nil {
-		defer res.Body.Close()
+	case ssr := <-respChan:
+		return ssr, nil
 	}
-
-	responseBody, readErr := ioutil.ReadAll(res.Body)
-
-	if readErr != nil {
-		return nil, err
-	}
-
-	var decodedBody responseWrapper
-	err = json.Unmarshal(responseBody, &decodedBody)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &decodedBody.Response, nil
 }
 
 func (connection *SubsonicConnection) DeletePlaylist(id string) error {

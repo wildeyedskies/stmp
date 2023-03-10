@@ -36,16 +36,16 @@ type Ui struct {
 
 func (ui *Ui) handleEntitySelected(directoryId string) {
 	response, err := ui.connection.GetMusicDirectory(directoryId)
-	sort.Sort(response.Directory.Entities)
 	if err != nil {
 		ui.logList.AddItem(fmt.Sprintf("handleEntitySelected: GetMusicDirectory %s -- %s", directoryId, err.Error()), "", 0, nil)
+		return
 	}
+	sort.Sort(response.Directory.Entities)
 
 	ui.currentDirectory = &response.Directory
 	ui.entityList.Clear()
 	if response.Directory.Parent != "" {
-		ui.entityList.AddItem(tview.Escape("[..]"), "", 0,
-			ui.makeEntityHandler(response.Directory.Parent))
+		ui.entityList.AddItem(tview.Escape("[..]"), "", 0, ui.makeEntityHandler(response.Directory.Parent))
 	}
 
 	for _, entity := range response.Directory.Entities {
@@ -56,9 +56,7 @@ func (ui *Ui) handleEntitySelected(directoryId string) {
 			handler = ui.makeEntityHandler(entity.Id)
 		} else {
 			title = entity.getSongTitle()
-			handler = makeSongHandler(ui.connection.GetPlayUrl(&entity),
-				title, stringOr(entity.Artist, response.Directory.Name),
-				entity.Duration, ui.player, ui.queueList)
+			handler = makeSongHandler(ui.connection.GetPlayUrl(&entity), title, stringOr(entity.Artist, response.Directory.Name), entity.Duration, ui.player, ui.queueList)
 		}
 
 		ui.entityList.AddItem(title, "", 0, handler)

@@ -38,7 +38,7 @@ func (ui *Ui) handleEntitySelected(directoryId string) {
 	response, err := ui.connection.GetMusicDirectory(directoryId)
 	sort.Sort(response.Directory.Entities)
 	if err != nil {
-		ui.logList.AddItem(fmt.Sprintf("handleEntitySelected: GetMusicDirectory %s -- %s", directoryId, err.Error()), "", 0, nil)
+		ui.connection.Logger.Printf("handleEntitySelected: GetMusicDirectory %s -- %s", directoryId, err.Error())
 	}
 
 	ui.currentDirectory = &response.Directory
@@ -91,7 +91,7 @@ func (ui *Ui) handleDeleteFromQueue() {
 	// remove the track. Removing the track auto starts the next one
 	if currentIndex == 0 {
 		if isSongLoaded, err := ui.player.IsSongLoaded(); err != nil {
-			ui.logList.AddItem(fmt.Sprintf("handleDeleteFromQueue: IsSongLoaded -- %s", err.Error()), "", 0, nil)
+			ui.connection.Logger.Printf("handleDeleteFromQueue: IsSongLoaded -- %s", err.Error())
 			return
 		} else if isSongLoaded {
 			ui.player.Stop()
@@ -190,7 +190,7 @@ func (ui *Ui) handleAddSongToPlaylist(playlist *SubsonicPlaylist) {
 	// update the playlists
 	response, err := ui.connection.GetPlaylists()
 	if err != nil {
-		ui.logList.AddItem(fmt.Sprintf("handleAddSongToPlaylist: GetPlaylists -- %s", err.Error()), "", 0, nil)
+		ui.connection.Logger.Printf("handleAddSongToPlaylist: GetPlaylists -- %s", err.Error())
 	}
 	ui.playlists = response.Playlists.Playlists
 
@@ -210,7 +210,7 @@ func (ui *Ui) handleAddSongToPlaylist(playlist *SubsonicPlaylist) {
 func (ui *Ui) addDirectoryToQueue(entity *SubsonicEntity) {
 	response, err := ui.connection.GetMusicDirectory(entity.Id)
 	if err != nil {
-		ui.logList.AddItem(fmt.Sprintf("addDirectoryToQueue: GetMusicDirectory %s -- %s", entity.Id, err.Error()), "", 0, nil)
+		ui.connection.Logger.Printf("addDirectoryToQueue: GetMusicDirectory %s -- %s", entity.Id, err.Error())
 		return
 	}
 
@@ -287,7 +287,7 @@ func (ui *Ui) addSongToQueue(entity *SubsonicEntity) {
 func (ui *Ui) newPlaylist(name string) {
 	response, err := ui.connection.CreatePlaylist(name)
 	if err != nil {
-		ui.logList.AddItem(fmt.Sprintf("newPlaylist: CreatePlaylist %s -- %s", name, err.Error()), "", 0, nil)
+		ui.connection.Logger.Printf("newPlaylist: CreatePlaylist %s -- %s", name, err.Error())
 		return
 	}
 
@@ -385,7 +385,13 @@ func createUi(indexes *[]SubsonicIndex, playlists *[]SubsonicPlaylist, connectio
 	go func() {
 		select {
 		case msg := <-connection.Logger.prints:
-			ui.logList.AddItem(msg, "", 0, nil)
+			ui.app.QueueUpdate(func() {
+				ui.logList.AddItem(msg, "", 0, nil)
+				// Make sure the log list doesn't grow infinitely
+				for ui.logList.GetItemCount() > 200 {
+					ui.logList.RemoveItem(0)
+				}
+			})
 		}
 	}()
 
@@ -675,13 +681,13 @@ func InitGui(indexes *[]SubsonicIndex, playlists *[]SubsonicPlaylist, connection
 			ui.player.Queue = make([]QueueItem, 0)
 			err := ui.player.Stop()
 			if err != nil {
-				ui.logList.AddItem(fmt.Sprintf("InitGui: Stop -- %s", err.Error()), "", 0, nil)
+				ui.connection.Logger.Printf("InitGui: Stop -- %s", err.Error())
 			}
 			updateQueueList(ui.player, ui.queueList)
 		case 'p':
 			status, err := ui.player.Pause()
 			if err != nil {
-				ui.logList.AddItem(fmt.Sprintf("InitGui: Pause -- %s", err.Error()), "", 0, nil)
+				ui.connection.Logger.Printf("InitGui: Pause -- %s", err.Error())
 				ui.startStopStatus.SetText("[::b]stmp: [red]error")
 				return nil
 			}
@@ -695,24 +701,24 @@ func InitGui(indexes *[]SubsonicIndex, playlists *[]SubsonicPlaylist, connection
 			return nil
 		case '-':
 			if err := ui.player.AdjustVolume(-5); err != nil {
-				ui.logList.AddItem(fmt.Sprintf("InitGui: AdjustVolume %d -- %s", -5, err.Error()), "", 0, nil)
+				ui.connection.Logger.Printf("InitGui: AdjustVolume %d -- %s", -5, err.Error())
 			}
 			return nil
 
 		case '=':
 			if err := ui.player.AdjustVolume(5); err != nil {
-				ui.logList.AddItem(fmt.Sprintf("InitGui: AdjustVolume %d -- %s", 5, err.Error()), "", 0, nil)
+				ui.connection.Logger.Printf("InitGui: AdjustVolume %d -- %s", 5, err.Error())
 			}
 			return nil
 
 		case '.':
 			if err := ui.player.Seek(10); err != nil {
-				ui.logList.AddItem(fmt.Sprintf("InitGui: Seek %d -- %s", 10, err.Error()), "", 0, nil)
+				ui.connection.Logger.Printf("InitGui: Seek %d -- %s", 10, err.Error())
 			}
 			return nil
 		case ',':
 			if err := ui.player.Seek(-10); err != nil {
-				ui.logList.AddItem(fmt.Sprintf("InitGui: Seek %d -- %s", -10, err.Error()), "", 0, nil)
+				ui.connection.Logger.Printf("InitGui: Seek %d -- %s", -10, err.Error())
 			}
 			return nil
 		}
@@ -753,7 +759,7 @@ func (ui *Ui) handleMpvEvents() {
 			updateQueueList(ui.player, ui.queueList)
 			err := ui.player.PlayNextTrack()
 			if err != nil {
-				ui.logList.AddItem(fmt.Sprintf("handleMoveEvents: PlayNextTrack -- %s", err.Error()), "", 0, nil)
+				ui.connection.Logger.Printf("handleMoveEvents: PlayNextTrack -- %s", err.Error())
 			}
 		} else if e.Event_Id == mpv.EVENT_START_FILE {
 			ui.player.ReplaceInProgress = false
@@ -766,21 +772,21 @@ func (ui *Ui) handleMpvEvents() {
 			if len(ui.player.Queue) > 0 {
 				qi = ui.player.Queue[0]
 			}
-			ui.logList.AddItem(fmt.Sprintf("Player event %s - %s", e.Event_Id.String(), qi.Uri), "", 0, nil)
+			ui.connection.Logger.Printf("Player event %s - %s", e.Event_Id.String(), qi.Uri)
 		}
 
 		position, err := ui.player.Instance.GetProperty("time-pos", mpv.FORMAT_DOUBLE)
 		if err != nil {
-			ui.logList.AddItem(fmt.Sprintf("handleMoveEvents (%s): GetProperty %s -- %s", e.Event_Id.String(), "time-pos", err.Error()), "", 0, nil)
+			ui.connection.Logger.Printf("handleMoveEvents (%s): GetProperty %s -- %s", e.Event_Id.String(), "time-pos", err.Error())
 		}
 		// TODO only update these as needed
 		duration, err := ui.player.Instance.GetProperty("duration", mpv.FORMAT_DOUBLE)
 		if err != nil {
-			ui.logList.AddItem(fmt.Sprintf("handleMoveEvents (%s): GetProperty %s -- %s", e.Event_Id.String(), "duration", err.Error()), "", 0, nil)
+			ui.connection.Logger.Printf("handleMoveEvents (%s): GetProperty %s -- %s", e.Event_Id.String(), "duration", err.Error())
 		}
 		volume, err := ui.player.Instance.GetProperty("volume", mpv.FORMAT_INT64)
 		if err != nil {
-			ui.logList.AddItem(fmt.Sprintf("handleMoveEvents (%s): GetProperty %s -- %s", e.Event_Id.String(), "volume", err.Error()), "", 0, nil)
+			ui.connection.Logger.Printf("handleMoveEvents (%s): GetProperty %s -- %s", e.Event_Id.String(), "volume", err.Error())
 		}
 
 		if position == nil {

@@ -383,15 +383,17 @@ func createUi(indexes *[]SubsonicIndex, playlists *[]SubsonicPlaylist, connectio
 	}
 
 	go func() {
-		select {
-		case msg := <-connection.Logger.prints:
-			ui.app.QueueUpdate(func() {
-				ui.logList.AddItem(msg, "", 0, nil)
-				// Make sure the log list doesn't grow infinitely
-				for ui.logList.GetItemCount() > 200 {
-					ui.logList.RemoveItem(0)
-				}
-			})
+		for {
+			select {
+			case msg := <-connection.Logger.prints:
+				ui.app.QueueUpdate(func() {
+					ui.logList.AddItem(msg, "", 0, nil)
+					// Make sure the log list doesn't grow infinitely
+					for ui.logList.GetItemCount() > 200 {
+						ui.logList.RemoveItem(0)
+					}
+				})
+			}
 		}
 	}()
 
@@ -619,14 +621,6 @@ func (ui *Ui) createPlaylistPage(titleFlex *tview.Flex) (*tview.Flex, tview.Prim
 	return playlistFlex, deletePlaylistModal
 }
 
-func (ui *Ui) createLogPage(titleFlex *tview.Flex) *tview.Flex {
-	logFlex := tview.NewFlex().SetDirection(tview.FlexRow).
-		AddItem(titleFlex, 1, 0, false).
-		AddItem(ui.logList, 0, 1, true)
-
-	return logFlex
-}
-
 func InitGui(indexes *[]SubsonicIndex, playlists *[]SubsonicPlaylist, connection *SubsonicConnection, player *Player) *Ui {
 	ui := createUi(indexes, playlists, connection, player)
 
@@ -641,7 +635,9 @@ func InitGui(indexes *[]SubsonicIndex, playlists *[]SubsonicPlaylist, connection
 	browserFlex, addToPlaylistModal := ui.createBrowserPage(titleFlex, indexes)
 	queueFlex := ui.createQueuePage(titleFlex)
 	playlistFlex, deletePlaylistModal := ui.createPlaylistPage(titleFlex)
-	logListFlex := ui.createLogPage(titleFlex)
+	logListFlex := tview.NewFlex().SetDirection(tview.FlexRow).
+		AddItem(titleFlex, 1, 0, false).
+		AddItem(ui.logList, 0, 1, true)
 
 	// handle
 	go ui.handleMpvEvents()

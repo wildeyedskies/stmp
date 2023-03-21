@@ -55,6 +55,7 @@ func main() {
 		Username:       viper.GetString("auth.username"),
 		Password:       viper.GetString("auth.password"),
 		Host:           viper.GetString("server.host"),
+		PlaintextAuth:  viper.GetBool("auth.plaintext"),
 		Logger:         logger,
 		directoryCache: make(map[string]SubsonicResponse),
 	}

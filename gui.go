@@ -121,7 +121,7 @@ func (ui *Ui) handleAddEntityToQueue() {
 		currentIndex--
 	}
 
-	if currentIndex == -1 || len(ui.currentDirectory.Entities) < currentIndex {
+	if currentIndex == -1 || len(ui.currentDirectory.Entities) <= currentIndex {
 		return
 	}
 
@@ -329,7 +329,7 @@ func (ui *Ui) makeEntityHandler(directoryId string) func() {
 	}
 }
 
-func createUi(indexes *[]SubsonicIndex, playlists *[]SubsonicPlaylist, connection *SubsonicConnection, player *Player) *Ui {
+func createUi(_ *[]SubsonicIndex, playlists *[]SubsonicPlaylist, connection *SubsonicConnection, player *Player) *Ui {
 	app := tview.NewApplication()
 	pages := tview.NewPages()
 	// list of entities
@@ -447,6 +447,25 @@ func (ui *Ui) createBrowserPage(titleFlex *tview.Flex, indexes *[]SubsonicIndex)
 		case 'N':
 			ui.searchPrev()
 			return nil
+		case 'r':
+			goBackTo := ui.artistList.GetCurrentItem()
+			// REFRESH artists
+			indexResponse, err := ui.connection.GetIndexes()
+			if err != nil {
+				ui.logger.Printf("Error fetching indexes from server: %s\n", err)
+				return event
+			}
+			ui.artistList.Clear()
+			for _, index := range indexResponse.Indexes.Index {
+				for _, artist := range index.Artists {
+					ui.artistList.AddItem(artist.Name, "", 0, nil)
+					ui.artistIdList = append(ui.artistIdList, artist.Id)
+				}
+			}
+			// Try to put the user to about where they were
+			if goBackTo < ui.artistList.GetItemCount() {
+				ui.artistList.SetCurrentItem(goBackTo)
+			}
 		}
 		return event
 	})
@@ -496,6 +515,15 @@ func (ui *Ui) createBrowserPage(titleFlex *tview.Flex, indexes *[]SubsonicIndex)
 		if event.Rune() == 'A' && ui.playlistList.GetItemCount() > 0 {
 			ui.pages.ShowPage("addToPlaylist")
 			ui.app.SetFocus(ui.addToPlaylistList)
+			return nil
+		}
+		// REFRESH only the artist
+		if event.Rune() == 'r' {
+			artistIdx := ui.artistList.GetCurrentItem()
+			entity := ui.artistIdList[artistIdx]
+			//ui.logger.Printf("refreshing artist idx %d, entity %s (%s)", artistIdx, entity, ui.connection.directoryCache[entity].Directory.Name)
+			delete(ui.connection.directoryCache, entity)
+			ui.handleEntitySelected(ui.artistIdList[artistIdx])
 			return nil
 		}
 		return event

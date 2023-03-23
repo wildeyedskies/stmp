@@ -67,3 +67,4 @@ host = 'https://your-subsonic-host.tld'
 * / - Search artists
 * n - Continue search forward
 * N - Continue search backwards
+* r - refresh the list (if in artist directory, only refreshes that artist)

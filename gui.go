@@ -452,7 +452,7 @@ func (ui *Ui) createBrowserPage(titleFlex *tview.Flex, indexes *[]SubsonicIndex)
 			// REFRESH artists
 			indexResponse, err := ui.connection.GetIndexes()
 			if err != nil {
-				ui.logger.Printf("Error fetching indexes from server: %s\n", err)
+				ui.connection.Logger.Printf("Error fetching indexes from server: %s\n", err)
 				return event
 			}
 			ui.artistList.Clear()

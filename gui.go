@@ -456,6 +456,7 @@ func (ui *Ui) createBrowserPage(titleFlex *tview.Flex, indexes *[]SubsonicIndex)
 				return event
 			}
 			ui.artistList.Clear()
+			ui.connection.directoryCache = make(map[string]SubsonicResponse)
 			for _, index := range indexResponse.Indexes.Index {
 				for _, artist := range index.Artists {
 					ui.artistList.AddItem(artist.Name, "", 0, nil)

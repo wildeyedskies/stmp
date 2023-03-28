@@ -792,12 +792,6 @@ func (ui *Ui) handleMpvEvents() {
 			updateQueueList(ui.player, ui.queueList)
 		} else if e.Event_Id == mpv.EVENT_IDLE || e.Event_Id == mpv.EVENT_NONE {
 			continue
-		} else if e.Event_Id != mpv.EVENT_PROPERTY_CHANGE {
-			var qi QueueItem
-			if len(ui.player.Queue) > 0 {
-				qi = ui.player.Queue[0]
-			}
-			ui.connection.Logger.Printf("Player event %s - %s", e.Event_Id.String(), qi.Uri)
 		}
 
 		position, err := ui.player.Instance.GetProperty("time-pos", mpv.FORMAT_DOUBLE)

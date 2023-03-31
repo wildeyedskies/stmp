@@ -235,7 +235,6 @@ func (connection *SubsonicConnection) CreatePlaylist(name string) (*SubsonicResp
 }
 
 func (connection *SubsonicConnection) getResponse(caller, requestUrl string) (*SubsonicResponse, error) {
-	connection.Logger.Printf("%s %s", caller, requestUrl)
 	res, err := http.Get(requestUrl)
 
 	if err != nil {
@@ -266,7 +265,6 @@ func (connection *SubsonicConnection) DeletePlaylist(id string) error {
 	query := defaultQuery(connection)
 	query.Set("id", id)
 	requestUrl := connection.Host + "/rest/deletePlaylist" + "?" + query.Encode()
-	connection.Logger.Printf("DeletePlaylist %s", requestUrl)
 	_, err := http.Get(requestUrl)
 	return err
 }
@@ -276,7 +274,6 @@ func (connection *SubsonicConnection) AddSongToPlaylist(playlistId string, songI
 	query.Set("playlistId", playlistId)
 	query.Set("songIdToAdd", songId)
 	requestUrl := connection.Host + "/rest/updatePlaylist" + "?" + query.Encode()
-	connection.Logger.Printf("AddSongToPlaylist %s", requestUrl)
 	_, err := http.Get(requestUrl)
 	return err
 }
@@ -286,7 +283,6 @@ func (connection *SubsonicConnection) RemoveSongFromPlaylist(playlistId string, 
 	query.Set("playlistId", playlistId)
 	query.Set("songIndexToRemove", strconv.Itoa(songIndex))
 	requestUrl := connection.Host + "/rest/updatePlaylist" + "?" + query.Encode()
-	connection.Logger.Printf("RemoveSongFromPlaylist %s", requestUrl)
 	_, err := http.Get(requestUrl)
 	return err
 }

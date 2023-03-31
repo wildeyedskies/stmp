@@ -121,7 +121,7 @@ func (ui *Ui) handleAddEntityToQueue() {
 		currentIndex--
 	}
 
-	if currentIndex == -1 || len(ui.currentDirectory.Entities) < currentIndex {
+	if currentIndex == -1 || len(ui.currentDirectory.Entities) <= currentIndex {
 		return
 	}
 
@@ -329,7 +329,7 @@ func (ui *Ui) makeEntityHandler(directoryId string) func() {
 	}
 }
 
-func createUi(indexes *[]SubsonicIndex, playlists *[]SubsonicPlaylist, connection *SubsonicConnection, player *Player) *Ui {
+func createUi(_ *[]SubsonicIndex, playlists *[]SubsonicPlaylist, connection *SubsonicConnection, player *Player) *Ui {
 	app := tview.NewApplication()
 	pages := tview.NewPages()
 	// list of entities
@@ -447,6 +447,26 @@ func (ui *Ui) createBrowserPage(titleFlex *tview.Flex, indexes *[]SubsonicIndex)
 		case 'N':
 			ui.searchPrev()
 			return nil
+		case 'r':
+			goBackTo := ui.artistList.GetCurrentItem()
+			// REFRESH artists
+			indexResponse, err := ui.connection.GetIndexes()
+			if err != nil {
+				ui.connection.Logger.Printf("Error fetching indexes from server: %s\n", err)
+				return event
+			}
+			ui.artistList.Clear()
+			ui.connection.directoryCache = make(map[string]SubsonicResponse)
+			for _, index := range indexResponse.Indexes.Index {
+				for _, artist := range index.Artists {
+					ui.artistList.AddItem(artist.Name, "", 0, nil)
+					ui.artistIdList = append(ui.artistIdList, artist.Id)
+				}
+			}
+			// Try to put the user to about where they were
+			if goBackTo < ui.artistList.GetItemCount() {
+				ui.artistList.SetCurrentItem(goBackTo)
+			}
 		}
 		return event
 	})
@@ -496,6 +516,15 @@ func (ui *Ui) createBrowserPage(titleFlex *tview.Flex, indexes *[]SubsonicIndex)
 		if event.Rune() == 'A' && ui.playlistList.GetItemCount() > 0 {
 			ui.pages.ShowPage("addToPlaylist")
 			ui.app.SetFocus(ui.addToPlaylistList)
+			return nil
+		}
+		// REFRESH only the artist
+		if event.Rune() == 'r' {
+			artistIdx := ui.artistList.GetCurrentItem()
+			entity := ui.artistIdList[artistIdx]
+			//ui.logger.Printf("refreshing artist idx %d, entity %s (%s)", artistIdx, entity, ui.connection.directoryCache[entity].Directory.Name)
+			delete(ui.connection.directoryCache, entity)
+			ui.handleEntitySelected(ui.artistIdList[artistIdx])
 			return nil
 		}
 		return event
@@ -763,12 +792,6 @@ func (ui *Ui) handleMpvEvents() {
 			updateQueueList(ui.player, ui.queueList)
 		} else if e.Event_Id == mpv.EVENT_IDLE || e.Event_Id == mpv.EVENT_NONE {
 			continue
-		} else if e.Event_Id != mpv.EVENT_PROPERTY_CHANGE {
-			var qi QueueItem
-			if len(ui.player.Queue) > 0 {
-				qi = ui.player.Queue[0]
-			}
-			ui.connection.Logger.Printf("Player event %s - %s", e.Event_Id.String(), qi.Uri)
 		}
 
 		position, err := ui.player.Instance.GetProperty("time-pos", mpv.FORMAT_DOUBLE)

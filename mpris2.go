@@ -73,9 +73,7 @@ func RegisterPlayer(p *Player, l Logger) (MprisPlayer, error) {
 		return MprisPlayer{}, err
 	}
 	parts := []string{"", "org", "mpris", "MediaPlayer2", "Player"}
-	path := strings.Join(parts, "/")
 	name := strings.Join(parts[1:], ".")
-	l.Printf("exporting %s %s\n", path, name)
 	mpp := MprisPlayer{
 		conn:   conn,
 		player: p,

@@ -47,6 +47,7 @@ or the directory in which the executible is placed.
 [auth]
 username = 'admin'
 password = 'password'
+plaintext = true # Use 'legacy' unsalted password auth. (default: false)
 
 [server]
 host = 'https://your-subsonic-host.tld'

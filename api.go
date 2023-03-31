@@ -18,6 +18,7 @@ type SubsonicConnection struct {
 	Username       string
 	Password       string
 	Host           string
+	PlaintextAuth  bool
 	Logger         Logger
 	directoryCache map[string]SubsonicResponse
 }
@@ -38,11 +39,15 @@ func authToken(password string) (string, string) {
 }
 
 func defaultQuery(connection *SubsonicConnection) url.Values {
-	token, salt := authToken(connection.Password)
 	query := url.Values{}
+	if connection.PlaintextAuth {
+		query.Set("p", connection.Password)
+	} else {
+		token, salt := authToken(connection.Password)
+		query.Set("t", token)
+		query.Set("s", salt)
+	}
 	query.Set("u", connection.Username)
-	query.Set("t", token)
-	query.Set("s", salt)
 	query.Set("v", "1.15.1")
 	query.Set("c", "stmp")
 	query.Set("f", "json")

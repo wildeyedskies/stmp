@@ -74,6 +74,10 @@ type SubsonicDirectory struct {
 	Entities SubsonicEntities `json:"child"`
 }
 
+type SubsonicSongs struct {
+	Song SubsonicEntities `json:"song"`
+}
+
 type SubsonicEntity struct {
 	Id          string `json:"id"`
 	IsDirectory bool   `json:"isDir"`
@@ -130,13 +134,14 @@ type SubsonicPlaylist struct {
 }
 
 type SubsonicResponse struct {
-	Status    string            `json:"status"`
-	Version   string            `json:"version"`
-	Indexes   SubsonicIndexes   `json:"indexes"`
-	Directory SubsonicDirectory `json:"directory"`
-	Playlists SubsonicPlaylists `json:"playlists"`
-	Playlist  SubsonicPlaylist  `json:"playlist"`
-	Error     SubsonicError     `json:"error"`
+	Status      string            `json:"status"`
+	Version     string            `json:"version"`
+	Indexes     SubsonicIndexes   `json:"indexes"`
+	Directory   SubsonicDirectory `json:"directory"`
+	RandomSongs SubsonicSongs     `json:"randomSongs"`
+	Playlists   SubsonicPlaylists `json:"playlists"`
+	Playlist    SubsonicPlaylist  `json:"playlist"`
+	Error       SubsonicError     `json:"error"`
 }
 
 type responseWrapper struct {
@@ -189,6 +194,18 @@ func (connection *SubsonicConnection) GetMusicDirectory(id string) (*SubsonicRes
 		connection.directoryCache[id] = *resp
 	}
 
+	return resp, nil
+}
+
+func (connection *SubsonicConnection) GetRandomSongs() (*SubsonicResponse, error) {
+	query := defaultQuery(connection)
+        // Let's get 50 random songs, default is 10
+	query.Set("size", "50")
+	requestUrl := connection.Host + "/rest/getRandomSongs" + "?" + query.Encode()
+	resp, err := connection.getResponse("GetRandomSongs", requestUrl)
+	if err != nil {
+		return resp, err
+	}
 	return resp, nil
 }
 

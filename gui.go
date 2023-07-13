@@ -109,6 +109,11 @@ func (ui *Ui) handleDeleteFromQueue() {
 	updateQueueList(ui.player, ui.queueList)
 }
 
+func (ui *Ui) handleAddRandomSongs() {
+	ui.addRandomSongsToQueue()
+	updateQueueList(ui.player, ui.queueList)
+}
+
 func (ui *Ui) handleAddEntityToQueue() {
 	currentIndex := ui.entityList.GetCurrentItem()
 	if currentIndex+1 < ui.entityList.GetItemCount() {
@@ -204,6 +209,16 @@ func (ui *Ui) handleAddSongToPlaylist(playlist *SubsonicPlaylist) {
 
 	if currentIndex+1 < ui.entityList.GetItemCount() {
 		ui.entityList.SetCurrentItem(currentIndex + 1)
+	}
+}
+
+func (ui *Ui) addRandomSongsToQueue() {
+	response, err := ui.connection.GetRandomSongs()
+	if (err != nil) {
+		ui.connection.Logger.Printf("addRandomSongsToQueue #1: ", err.Error())
+	}
+	for _, e := range response.RandomSongs.Song {
+		ui.addSongToQueue(&e)
 	}
 }
 
@@ -702,6 +717,8 @@ func InitGui(indexes *[]SubsonicIndex, playlists *[]SubsonicPlaylist, connection
 			ui.player.EventChannel <- nil
 			ui.player.Instance.TerminateDestroy()
 			ui.app.Stop()
+		case 's':
+			ui.handleAddRandomSongs()
 		case 'D':
 			ui.player.Queue = make([]QueueItem, 0)
 			err := ui.player.Stop()

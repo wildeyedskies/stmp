@@ -57,8 +57,7 @@ func (ui *Ui) handleEntitySelected(directoryId string) {
 			title = tview.Escape("[" + entity.Title + "]")
 			handler = ui.makeEntityHandler(entity.Id)
 		} else {
-			
-			title = entity.getSongTitle()
+			title = entityListTextFormat(entity, ui.starIdList )
 			handler = makeSongHandler(id, ui.connection.GetPlayUrl(&entity),
 				title, stringOr(entity.Artist, response.Directory.Name),
 				entity.Duration, ui.player, ui.queueList, ui.starIdList)
@@ -143,8 +142,9 @@ func (ui *Ui) handleToggleStar() {
 
 	var text = queueListTextFormat(ui.player.Queue[currentIndex], ui.starIdList )
 	updateQueueListItem(ui.queueList, currentIndex, text)
+	// Update the entity list to reflect any changes
+	ui.handleEntitySelected(ui.currentDirectory.Id) 
 }
-
 
 func (ui *Ui) handleAddEntityToQueue() {
 	currentIndex := ui.entityList.GetCurrentItem()
@@ -172,6 +172,47 @@ func (ui *Ui) handleAddEntityToQueue() {
 
 	updateQueueList(ui.player, ui.queueList, ui.starIdList)
 }
+
+func (ui *Ui) handleToggleEntityStar() {
+	currentIndex := ui.entityList.GetCurrentItem()
+
+	var entity = ui.currentDirectory.Entities[currentIndex-1]
+
+	// If the song is already in the star list, remove it
+	_, remove := ui.starIdList[entity.Id]
+
+	ui.connection.ToggleStar(entity.Id, ui.starIdList)
+
+	if (remove) {
+		delete(ui.starIdList, entity.Id)
+	} else {
+		ui.starIdList[entity.Id] = struct{}{}
+	}
+
+	var text = entityListTextFormat(entity, ui.starIdList )
+	updateEntityListItem(ui.entityList, currentIndex, text)
+	updateQueueList(ui.player, ui.queueList, ui.starIdList)
+}
+
+func entityListTextFormat(queueItem SubsonicEntity, starredItems map[string]struct{} ) string {
+	var star = ""
+	_, hasStar := starredItems[queueItem.Id]
+	if hasStar {
+		star = " [red]♥"
+	}
+	return queueItem.Title + star
+}
+
+// Just update the text of a specific row
+func updateEntityListItem(entityList *tview.List, id int, text string) {
+	entityList.SetItemText(id, text, "")
+}
+
+
+
+
+
+
 
 func (ui *Ui) handleAddPlaylistSongToQueue() {
 	playlistIndex := ui.playlistList.GetCurrentItem()
@@ -260,8 +301,6 @@ func (ui *Ui) addStarredToList() {
 		ui.connection.Logger.Printf("addStarredToList", err.Error())
 	}
 	for _, e := range response.Starred.Song {
-		ui.connection.Logger.Printf("STARRED", "Adding stared song "+e.Title+" ["+e.Id+"] to list")
-
 		// We're storing empty struct as values as we only want the indexes
 		// It's faster having direct index access instead of looping through array values
 		ui.starIdList[e.Id] = struct{}{}
@@ -580,6 +619,10 @@ func (ui *Ui) createBrowserPage(titleFlex *tview.Flex, indexes *[]SubsonicIndex)
 		}
 		if event.Rune() == 'a' {
 			ui.handleAddEntityToQueue()
+			return nil
+		}
+		if event.Rune() == 'y' {
+			ui.handleToggleEntityStar()
 			return nil
 		}
 		// only makes sense to add to a playlist if there are playlists

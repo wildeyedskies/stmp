@@ -143,7 +143,10 @@ func (ui *Ui) handleToggleStar() {
 	var text = queueListTextFormat(ui.player.Queue[currentIndex], ui.starIdList )
 	updateQueueListItem(ui.queueList, currentIndex, text)
 	// Update the entity list to reflect any changes
-	ui.handleEntitySelected(ui.currentDirectory.Id) 
+	ui.connection.Logger.Printf("entity test", ui.currentDirectory)
+	if (ui.currentDirectory != nil) {
+		ui.handleEntitySelected(ui.currentDirectory.Id) 
+	}
 }
 
 func (ui *Ui) handleAddEntityToQueue() {

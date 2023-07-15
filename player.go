@@ -13,6 +13,7 @@ const (
 )
 
 type QueueItem struct {
+	Id       string
 	Uri      string
 	Title    string
 	Artist   string
@@ -60,8 +61,8 @@ func (p *Player) PlayNextTrack() error {
 	return nil
 }
 
-func (p *Player) Play(uri string, title string, artist string, duration int) error {
-	p.Queue = []QueueItem{{uri, title, artist, duration}}
+func (p *Player) Play(id string, uri string, title string, artist string, duration int) error {
+	p.Queue = []QueueItem{{id, uri, title, artist, duration}}
 	p.ReplaceInProgress = true
 	if ip, e := p.IsPaused(); ip && e == nil {
 		p.Pause()

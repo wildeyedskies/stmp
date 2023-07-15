@@ -208,12 +208,6 @@ func updateEntityListItem(entityList *tview.List, id int, text string) {
 	entityList.SetItemText(id, text, "")
 }
 
-
-
-
-
-
-
 func (ui *Ui) handleAddPlaylistSongToQueue() {
 	playlistIndex := ui.playlistList.GetCurrentItem()
 	entityIndex := ui.selectedPlaylist.GetCurrentItem()

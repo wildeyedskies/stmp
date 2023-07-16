@@ -74,6 +74,14 @@ type SubsonicDirectory struct {
 	Entities SubsonicEntities `json:"child"`
 }
 
+type SubsonicSongs struct {
+	Song SubsonicEntities `json:"song"`
+}
+
+type SubsonicStarred struct {
+	Starred SubsonicEntities `json:"starred"`
+}
+
 type SubsonicEntity struct {
 	Id          string `json:"id"`
 	IsDirectory bool   `json:"isDir"`
@@ -130,13 +138,15 @@ type SubsonicPlaylist struct {
 }
 
 type SubsonicResponse struct {
-	Status    string            `json:"status"`
-	Version   string            `json:"version"`
-	Indexes   SubsonicIndexes   `json:"indexes"`
-	Directory SubsonicDirectory `json:"directory"`
-	Playlists SubsonicPlaylists `json:"playlists"`
-	Playlist  SubsonicPlaylist  `json:"playlist"`
-	Error     SubsonicError     `json:"error"`
+	Status      string            `json:"status"`
+	Version     string            `json:"version"`
+	Indexes     SubsonicIndexes   `json:"indexes"`
+	Directory   SubsonicDirectory `json:"directory"`
+	RandomSongs SubsonicSongs     `json:"randomSongs"`
+	Starred     SubsonicSongs     `json:"starred"`
+	Playlists   SubsonicPlaylists `json:"playlists"`
+	Playlist    SubsonicPlaylist  `json:"playlist"`
+	Error       SubsonicError     `json:"error"`
 }
 
 type responseWrapper struct {
@@ -189,6 +199,52 @@ func (connection *SubsonicConnection) GetMusicDirectory(id string) (*SubsonicRes
 		connection.directoryCache[id] = *resp
 	}
 
+	return resp, nil
+}
+
+func (connection *SubsonicConnection) GetRandomSongs() (*SubsonicResponse, error) {
+	query := defaultQuery(connection)
+        // Let's get 50 random songs, default is 10
+	query.Set("size", "50")
+	requestUrl := connection.Host + "/rest/getRandomSongs" + "?" + query.Encode()
+	resp, err := connection.getResponse("GetRandomSongs", requestUrl)
+	if err != nil {
+		return resp, err
+	}
+	return resp, nil
+}
+
+func (connection *SubsonicConnection) GetStarred() (*SubsonicResponse, error) {
+	query := defaultQuery(connection)
+	requestUrl := connection.Host + "/rest/getStarred" + "?" + query.Encode()
+	resp, err := connection.getResponse("GetStarred", requestUrl)
+	if err != nil {
+		return resp, err
+	}
+	return resp, nil
+}
+
+func (connection *SubsonicConnection) ToggleStar(id string, starredItems map[string]struct{}) (*SubsonicResponse, error) {
+	query := defaultQuery(connection)
+	query.Set("id",id)
+
+	_, ok := starredItems[id]
+	var action = "star"
+	// If the key exists, we're unstarring
+	if ok {
+		action = "unstar"
+	}
+
+	requestUrl := connection.Host + "/rest/" + action + "?" + query.Encode()
+	resp, err := connection.getResponse("ToggleStar", requestUrl)
+	if err != nil {
+		if (ok) {
+			delete(starredItems, id)
+		} else {
+			starredItems[id] = struct{}{}
+		}
+		return resp, err
+	}
 	return resp, nil
 }
 

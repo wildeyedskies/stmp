@@ -69,3 +69,5 @@ host = 'https://your-subsonic-host.tld'
 * n - Continue search forward
 * N - Continue search backwards
 * r - refresh the list (if in artist directory, only refreshes that artist)
+* s - add 50 random songs to the queue
+* y - toggle star on song 

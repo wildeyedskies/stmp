@@ -224,7 +224,6 @@ func (connection *SubsonicConnection) GetStarred() (*SubsonicResponse, error) {
 	return resp, nil
 }
 
-
 func (connection *SubsonicConnection) ToggleStar(id string, starredItems map[string]struct{}) (*SubsonicResponse, error) {
 	query := defaultQuery(connection)
 	query.Set("id",id)
@@ -235,8 +234,6 @@ func (connection *SubsonicConnection) ToggleStar(id string, starredItems map[str
 	if ok {
 		action = "unstar"
 	}
-
-	
 
 	requestUrl := connection.Host + "/rest/" + action + "?" + query.Encode()
 	resp, err := connection.getResponse("ToggleStar", requestUrl)
@@ -249,9 +246,7 @@ func (connection *SubsonicConnection) ToggleStar(id string, starredItems map[str
 		return resp, err
 	}
 	return resp, nil
-
 }
-
 
 func (connection *SubsonicConnection) GetPlaylists() (*SubsonicResponse, error) {
 	query := defaultQuery(connection)

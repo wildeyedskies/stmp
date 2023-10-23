@@ -919,6 +919,13 @@ func (ui *Ui) handleMpvEvents() {
 			ui.player.ReplaceInProgress = false
 			ui.startStopStatus.SetText("[::b]stmp: [green]playing " + ui.player.Queue[0].Title)
 			updateQueueList(ui.player, ui.queueList, ui.starIdList)
+
+			if ui.connection.Scrobble {
+				// scrobble "now playing" event
+				ui.connection.ScrobbleSubmission(ui.player.Queue[0].Id, false)
+				// scrobble "submission" event
+				ui.connection.ScrobbleSubmission(ui.player.Queue[0].Id, true)
+			}
 		} else if e.Event_Id == mpv.EVENT_IDLE || e.Event_Id == mpv.EVENT_NONE {
 			continue
 		}

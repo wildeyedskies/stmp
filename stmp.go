@@ -56,6 +56,7 @@ func main() {
 		Password:       viper.GetString("auth.password"),
 		Host:           viper.GetString("server.host"),
 		PlaintextAuth:  viper.GetBool("auth.plaintext"),
+		Scrobble:       viper.GetBool("server.scrobble"),
 		Logger:         logger,
 		directoryCache: make(map[string]SubsonicResponse),
 	}

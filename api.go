@@ -19,6 +19,7 @@ type SubsonicConnection struct {
 	Password       string
 	Host           string
 	PlaintextAuth  bool
+	Scrobble       bool
 	Logger         Logger
 	directoryCache map[string]SubsonicResponse
 }
@@ -209,6 +210,22 @@ func (connection *SubsonicConnection) GetRandomSongs() (*SubsonicResponse, error
 	requestUrl := connection.Host + "/rest/getRandomSongs" + "?" + query.Encode()
 	resp, err := connection.getResponse("GetRandomSongs", requestUrl)
 	if err != nil {
+		return resp, err
+	}
+	return resp, nil
+}
+
+func (connection *SubsonicConnection) ScrobbleSubmission(id string, isSubmission bool) (*SubsonicResponse, error) {
+	query := defaultQuery(connection)
+	query.Set("id", id)
+
+	// optional field, false for "now playing", true for "submission"
+	query.Set("submission", strconv.FormatBool(isSubmission))
+
+	requestUrl := connection.Host + "/rest/scrobble" + "?" + query.Encode()
+	resp, err := connection.getResponse("ScrobbleSubmission", requestUrl)
+	if err != nil {
+		connection.Logger.Printf("ScrobbleSubmission error: %v", err)
 		return resp, err
 	}
 	return resp, nil

@@ -5,6 +5,7 @@ import (
 	"math"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -33,6 +34,7 @@ type Ui struct {
 	playlists         []SubsonicPlaylist
 	connection        *SubsonicConnection
 	player            *Player
+	scrobbleTimer     *time.Timer
 }
 
 func (ui *Ui) handleEntitySelected(directoryId string) {
@@ -465,6 +467,12 @@ func createUi(_ *[]SubsonicIndex, playlists *[]SubsonicPlaylist, connection *Sub
 	// Stores the song IDs
 	var starIdList = map[string]struct{}{}
 
+	// create reused timer to scrobble after delay
+	scrobbleTimer := time.NewTimer(0)
+	if !scrobbleTimer.Stop() {
+		<-scrobbleTimer.C
+	}
+
 	ui := Ui{
 		app:               app,
 		pages:             pages,
@@ -484,6 +492,7 @@ func createUi(_ *[]SubsonicIndex, playlists *[]SubsonicPlaylist, connection *Sub
 		playlists:         *playlists,
 		connection:        connection,
 		player:            player,
+		scrobbleTimer:     scrobbleTimer,
 	}
 
 	ui.addStarredToList()
@@ -499,6 +508,17 @@ func createUi(_ *[]SubsonicIndex, playlists *[]SubsonicPlaylist, connection *Sub
 						ui.logList.RemoveItem(0)
 					}
 				})
+
+			case <-scrobbleTimer.C:
+				// scrobble submission delay elapsed
+				paused, err := ui.player.IsPaused()
+				connection.Logger.Printf("scrobbler event: paused %v, err %v, qlen %d", paused, err, len(ui.player.Queue))
+				isPlaying := err == nil && !paused
+				if len(ui.player.Queue) > 0 && isPlaying {
+					// it's still playing, submit it
+					currentSong := ui.player.Queue[0]
+					ui.connection.ScrobbleSubmission(currentSong.Id, true)
+				}
 			}
 		}
 	}()
@@ -917,8 +937,35 @@ func (ui *Ui) handleMpvEvents() {
 			}
 		} else if e.Event_Id == mpv.EVENT_START_FILE {
 			ui.player.ReplaceInProgress = false
-			ui.startStopStatus.SetText("[::b]stmp: [green]playing " + ui.player.Queue[0].Title)
 			updateQueueList(ui.player, ui.queueList, ui.starIdList)
+
+			if len(ui.player.Queue) > 0 {
+				currentSong := ui.player.Queue[0]
+				ui.startStopStatus.SetText("[::b]stmp: [green]playing " + currentSong.Title)
+
+				if ui.connection.Scrobble {
+					// scrobble "now playing" event
+					ui.connection.ScrobbleSubmission(currentSong.Id, false)
+
+					// scrobble "submission" after song has been playing a bit
+					// see: https://www.last.fm/api/scrobbling
+					// A track should only be scrobbled when the following conditions have been met:
+					// The track must be longer than 30 seconds. And the track has been played for
+					// at least half its duration, or for 4 minutes (whichever occurs earlier.)
+					if currentSong.Duration > 30 {
+						scrobbleDelay := currentSong.Duration / 2
+						if scrobbleDelay > 240 {
+							scrobbleDelay = 240
+						}
+						scrobbleDuration := time.Duration(scrobbleDelay) * time.Second
+
+						ui.scrobbleTimer.Reset(scrobbleDuration)
+						ui.connection.Logger.Printf("scrobbler: timer started, %v", scrobbleDuration)
+					} else {
+						ui.connection.Logger.Printf("scrobbler: track too short")
+					}
+				}
+			}
 		} else if e.Event_Id == mpv.EVENT_IDLE || e.Event_Id == mpv.EVENT_NONE {
 			continue
 		}

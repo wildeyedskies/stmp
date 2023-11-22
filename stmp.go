@@ -68,7 +68,7 @@ func main() {
 	}
 	playlistResponse, err := connection.GetPlaylists()
 	if err != nil {
-		fmt.Printf("Error fetching indexes from server: %s\n", err)
+		fmt.Printf("Error fetching playlists from server: %s\n", err)
 		os.Exit(1)
 	}
 

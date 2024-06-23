@@ -9,7 +9,7 @@ import (
 )
 
 func readConfig() {
-	required_properties := []string{"auth.username", "auth.password", "server.host"}
+	required_properties := []string{"auth.username", "auth.password", "server.host", "global.sleeptime"}
 
 	viper.SetConfigName("stmp")
 	viper.SetConfigType("toml")

@@ -204,8 +204,8 @@ func (connection *SubsonicConnection) GetMusicDirectory(id string) (*SubsonicRes
 
 func (connection *SubsonicConnection) GetRandomSongs() (*SubsonicResponse, error) {
 	query := defaultQuery(connection)
-        // Let's get 50 random songs, default is 10
-	query.Set("size", "50")
+	// Let's get 200 random songs, default is 10
+	query.Set("size", "200")
 	requestUrl := connection.Host + "/rest/getRandomSongs" + "?" + query.Encode()
 	resp, err := connection.getResponse("GetRandomSongs", requestUrl)
 	if err != nil {
@@ -226,7 +226,7 @@ func (connection *SubsonicConnection) GetStarred() (*SubsonicResponse, error) {
 
 func (connection *SubsonicConnection) ToggleStar(id string, starredItems map[string]struct{}) (*SubsonicResponse, error) {
 	query := defaultQuery(connection)
-	query.Set("id",id)
+	query.Set("id", id)
 
 	_, ok := starredItems[id]
 	var action = "star"
@@ -238,7 +238,7 @@ func (connection *SubsonicConnection) ToggleStar(id string, starredItems map[str
 	requestUrl := connection.Host + "/rest/" + action + "?" + query.Encode()
 	resp, err := connection.getResponse("ToggleStar", requestUrl)
 	if err != nil {
-		if (ok) {
+		if ok {
 			delete(starredItems, id)
 		} else {
 			starredItems[id] = struct{}{}

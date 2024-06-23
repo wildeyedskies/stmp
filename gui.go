@@ -819,7 +819,14 @@ func InitGui(indexes *[]SubsonicIndex, playlists *[]SubsonicPlaylist, connection
 	// Then, add random songs
 	ui.handleAddRandomSongs()
 
-	// and, start playing them
+	// and, start playing them.
+	status, err := ui.player.Pause()
+	if err != nil {
+		ui.startStopStatus.SetText("[::b]Fucker [red]error")
+	}
+	if status == PlayerPlaying {
+		ui.startStopStatus.SetText("[::b]Fucker [green]playing " + ui.player.Queue[0].Title)
+	}
 
 	ui.pages.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		// we don't want any of these firing if we're trying to add a new playlist

@@ -8,6 +8,19 @@ import (
 	"github.com/spf13/viper"
 )
 
+type Logger struct {
+	prints chan string
+}
+
+const (
+	projName string = "stmp"
+	projVers string = "0.0.1"
+)
+
+var (
+	commitHash string
+)
+
 func readConfig() {
 	required_properties := []string{"auth.username", "auth.password", "server.host", "global.sleeptime"}
 
@@ -29,21 +42,28 @@ func readConfig() {
 	}
 }
 
-type Logger struct {
-	prints chan string
-}
-
 func (l Logger) Printf(s string, as ...interface{}) {
 	l.prints <- fmt.Sprintf(s, as...)
+}
+
+// Makes version parameter useful
+func SetCommitHash(hash string) {
+	commitHash = hash
 }
 
 func main() {
 	help := flag.Bool("help", false, "Print usage")
 	enableMpris := flag.Bool("mpris", false, "Enable MPRIS2")
+	version := flag.Bool("v", false, "Print program version.")
 	flag.Parse()
 	if *help {
 		fmt.Printf("USAGE: %s <args>\n", os.Args[0])
 		flag.Usage()
+		os.Exit(0)
+	}
+
+	if *version {
+		fmt.Printf("%s %s (%s)\n", projName, projVers, commitHash)
 		os.Exit(0)
 	}
 

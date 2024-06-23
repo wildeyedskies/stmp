@@ -59,7 +59,7 @@ func (ui *Ui) handleEntitySelected(directoryId string) {
 			title = tview.Escape("[" + entity.Title + "]")
 			handler = ui.makeEntityHandler(entity.Id)
 		} else {
-			title = entityListTextFormat(entity, ui.starIdList )
+			title = entityListTextFormat(entity, ui.starIdList)
 			handler = makeSongHandler(id, ui.connection.GetPlayUrl(&entity),
 				title, stringOr(entity.Artist, response.Directory.Name),
 				entity.Duration, ui.player, ui.queueList, ui.starIdList)
@@ -136,18 +136,18 @@ func (ui *Ui) handleToggleStar() {
 	// resp, _ := ui.connection.ToggleStar(entity.Id, remove)
 	ui.connection.ToggleStar(entity.Id, ui.starIdList)
 
-	if (remove) {
+	if remove {
 		delete(ui.starIdList, entity.Id)
 	} else {
 		ui.starIdList[entity.Id] = struct{}{}
 	}
 
-	var text = queueListTextFormat(ui.player.Queue[currentIndex], ui.starIdList )
+	var text = queueListTextFormat(ui.player.Queue[currentIndex], ui.starIdList)
 	updateQueueListItem(ui.queueList, currentIndex, text)
 	// Update the entity list to reflect any changes
 	ui.connection.Logger.Printf("entity test", ui.currentDirectory)
-	if (ui.currentDirectory != nil) {
-		ui.handleEntitySelected(ui.currentDirectory.Id) 
+	if ui.currentDirectory != nil {
+		ui.handleEntitySelected(ui.currentDirectory.Id)
 	}
 }
 
@@ -188,18 +188,18 @@ func (ui *Ui) handleToggleEntityStar() {
 
 	ui.connection.ToggleStar(entity.Id, ui.starIdList)
 
-	if (remove) {
+	if remove {
 		delete(ui.starIdList, entity.Id)
 	} else {
 		ui.starIdList[entity.Id] = struct{}{}
 	}
 
-	var text = entityListTextFormat(entity, ui.starIdList )
+	var text = entityListTextFormat(entity, ui.starIdList)
 	updateEntityListItem(ui.entityList, currentIndex, text)
 	updateQueueList(ui.player, ui.queueList, ui.starIdList)
 }
 
-func entityListTextFormat(queueItem SubsonicEntity, starredItems map[string]struct{} ) string {
+func entityListTextFormat(queueItem SubsonicEntity, starredItems map[string]struct{}) string {
 	var star = ""
 	_, hasStar := starredItems[queueItem.Id]
 	if hasStar {
@@ -286,7 +286,7 @@ func (ui *Ui) handleAddSongToPlaylist(playlist *SubsonicPlaylist) {
 
 func (ui *Ui) addRandomSongsToQueue() {
 	response, err := ui.connection.GetRandomSongs()
-	if (err != nil) {
+	if err != nil {
 		ui.connection.Logger.Printf("addRandomSongsToQueue", err.Error())
 	}
 	for _, e := range response.RandomSongs.Song {
@@ -296,7 +296,7 @@ func (ui *Ui) addRandomSongsToQueue() {
 
 func (ui *Ui) addStarredToList() {
 	response, err := ui.connection.GetStarred()
-	if (err != nil) {
+	if err != nil {
 		ui.connection.Logger.Printf("addStarredToList", err.Error())
 	}
 	for _, e := range response.Starred.Song {
@@ -325,7 +325,7 @@ func (ui *Ui) addDirectoryToQueue(entity *SubsonicEntity) {
 
 func (ui *Ui) search() {
 	name, _ := ui.pages.GetFrontPage()
-	if name != "browser" {
+	if name != "bowser" {
 		return
 	}
 	ui.searchField.SetText("")
@@ -375,7 +375,6 @@ func (ui *Ui) addSongToQueue(entity *SubsonicEntity) {
 	}
 
 	var id = entity.Id
-
 
 	queueItem := QueueItem{
 		id,
@@ -449,10 +448,10 @@ func createUi(_ *[]SubsonicIndex, playlists *[]SubsonicPlaylist, connection *Sub
 	// songs in the selected playlist
 	selectedPlaylist := tview.NewList().ShowSecondaryText(false)
 	// status text at the top
-	startStopStatus := tview.NewTextView().SetText("[::b]stmp: [red]stopped").
+	startStopStatus := tview.NewTextView().SetText("[::b]Fucker [red]stopped").
 		SetTextAlign(tview.AlignLeft).
 		SetDynamicColors(true)
-	currentPage := tview.NewTextView().SetText("Browser").
+	currentPage := tview.NewTextView().SetText("Bowser").
 		SetTextAlign(tview.AlignCenter).
 		SetDynamicColors(true)
 	playerStatus := tview.NewTextView().SetText("[::b][100%][0:00/0:00]").
@@ -537,7 +536,7 @@ func (ui *Ui) createBrowserPage(titleFlex *tview.Flex, indexes *[]SubsonicIndex)
 	}
 
 	ui.searchField = tview.NewInputField().
-		SetLabel("Search:").
+		SetLabel("Search in ur ass:").
 		SetChangedFunc(func(s string) {
 			idxs := ui.artistList.FindItems(s, "", false, true)
 			if len(idxs) == 0 {
@@ -572,6 +571,9 @@ func (ui *Ui) createBrowserPage(titleFlex *tview.Flex, indexes *[]SubsonicIndex)
 			return nil
 		case 'N':
 			ui.searchPrev()
+			return nil
+		case '?':
+			ui.connection.Logger.Printf("Fucker!")
 			return nil
 		case 'r':
 			goBackTo := ui.artistList.GetCurrentItem()
@@ -616,14 +618,14 @@ func (ui *Ui) createBrowserPage(titleFlex *tview.Flex, indexes *[]SubsonicIndex)
 	ui.addToPlaylistList.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyEscape {
 			ui.pages.HidePage("addToPlaylist")
-			ui.pages.SwitchToPage("browser")
+			ui.pages.SwitchToPage("bowser")
 			ui.app.SetFocus(ui.entityList)
 		} else if event.Key() == tcell.KeyEnter {
 			playlist := ui.playlists[ui.addToPlaylistList.GetCurrentItem()]
 			ui.handleAddSongToPlaylist(&playlist)
 
 			ui.pages.HidePage("addToPlaylist")
-			ui.pages.SwitchToPage("browser")
+			ui.pages.SwitchToPage("bowser")
 			ui.app.SetFocus(ui.entityList)
 		}
 		return event
@@ -803,12 +805,28 @@ func InitGui(indexes *[]SubsonicIndex, playlists *[]SubsonicPlaylist, connection
 	// handle
 	go ui.handleMpvEvents()
 
-	ui.pages.AddPage("browser", browserFlex, true, true).
-		AddPage("queue", queueFlex, true, false).
-		AddPage("playlists", playlistFlex, true, false).
+	ui.pages.AddPage("bowser", browserFlex, true, true).
+		AddPage("Queue", queueFlex, true, false).
+		AddPage("Shitlists", playlistFlex, true, false).
 		AddPage("addToPlaylist", addToPlaylistModal, true, false).
 		AddPage("deletePlaylist", deletePlaylistModal, true, false).
-		AddPage("log", logListFlex, true, false)
+		AddPage("fog", logListFlex, true, false)
+
+	// Immediately go to Queue page
+	ui.pages.SwitchToPage("Queue")
+	ui.currentPage.SetText("Queue")
+
+	// Then, add random songs
+	ui.handleAddRandomSongs()
+
+	// and, start playing them.
+	status, err := ui.player.Pause()
+	if err != nil {
+		ui.startStopStatus.SetText("[::b]Fucker [red]error")
+	}
+	if status == PlayerPlaying {
+		ui.startStopStatus.SetText("[::b]Fucker [green]playing " + ui.player.Queue[0].Title)
+	}
 
 	ui.pages.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		// we don't want any of these firing if we're trying to add a new playlist
@@ -819,18 +837,19 @@ func InitGui(indexes *[]SubsonicIndex, playlists *[]SubsonicPlaylist, connection
 
 		switch event.Rune() {
 		case '1':
-			ui.pages.SwitchToPage("browser")
-			ui.currentPage.SetText("Browser")
+			ui.pages.SwitchToPage("bowser")
+			ui.currentPage.SetText("Bowser")
 		case '2':
-			ui.pages.SwitchToPage("queue")
+			ui.pages.SwitchToPage("Queue")
 			ui.currentPage.SetText("Queue")
 		case '3':
-			ui.pages.SwitchToPage("playlists")
-			ui.currentPage.SetText("Playlists")
+			ui.pages.SwitchToPage("Shitlists")
+			ui.currentPage.SetText("Shitlists")
 		case '4':
-			ui.pages.SwitchToPage("log")
-			ui.currentPage.SetText("Log")
+			ui.pages.SwitchToPage("fog")
+			ui.currentPage.SetText("Fog")
 		case 'q':
+			ui.connection.Logger.Printf("QUIT!1!!")
 			ui.player.EventChannel <- nil
 			ui.player.Instance.TerminateDestroy()
 			ui.app.Stop()
@@ -847,15 +866,16 @@ func InitGui(indexes *[]SubsonicIndex, playlists *[]SubsonicPlaylist, connection
 			status, err := ui.player.Pause()
 			if err != nil {
 				ui.connection.Logger.Printf("InitGui: Pause -- %s", err.Error())
-				ui.startStopStatus.SetText("[::b]stmp: [red]error")
+				ui.startStopStatus.SetText("[::b]Fucker [red]error")
 				return nil
 			}
 			if status == PlayerStopped {
-				ui.startStopStatus.SetText("[::b]stmp: [red]stopped")
+				ui.startStopStatus.SetText("[::b]Fucker [red]stopped")
+				ui.handleAddRandomSongs()
 			} else if status == PlayerPlaying {
-				ui.startStopStatus.SetText("[::b]stmp: [green]playing " + ui.player.Queue[0].Title)
+				ui.startStopStatus.SetText("[::b]Fucker [green]playing " + ui.player.Queue[0].Title)
 			} else if status == PlayerPaused {
-				ui.startStopStatus.SetText("[::b]stmp: [yellow]paused")
+				ui.startStopStatus.SetText("[::b]Fucker [yellow]paused")
 			}
 			return nil
 		case '-':
@@ -885,22 +905,21 @@ func InitGui(indexes *[]SubsonicIndex, playlists *[]SubsonicPlaylist, connection
 		return event
 	})
 
-	if err := ui.app.SetRoot(ui.pages, true).SetFocus(ui.pages).EnableMouse(true).Run(); err != nil {
+	if err := ui.app.SetRoot(ui.pages, true).SetFocus(ui.pages).EnableMouse(false).Run(); err != nil {
 		panic(err)
 	}
 
 	return ui
 }
 
-
-func queueListTextFormat(queueItem QueueItem, starredItems map[string]struct{} ) string {
+func queueListTextFormat(queueItem QueueItem, starredItems map[string]struct{}) string {
 	min, sec := iSecondsToMinAndSec(queueItem.Duration)
 	var star = ""
 	_, hasStar := starredItems[queueItem.Id]
 	if hasStar {
 		star = " [red]♥"
 	}
-	return fmt.Sprintf("%s - %s - %02d:%02d %s", queueItem.Title, queueItem.Artist, min, sec,star)
+	return fmt.Sprintf("%s - %s - %02d:%02d %s", queueItem.Title, queueItem.Artist, min, sec, star)
 }
 
 // Just update the text of a specific row
@@ -925,7 +944,7 @@ func (ui *Ui) handleMpvEvents() {
 			break
 			// we don't want to update anything if we're in the process of replacing the current track
 		} else if e.Event_Id == mpv.EVENT_END_FILE && !ui.player.ReplaceInProgress {
-			ui.startStopStatus.SetText("[::b]stmp: [red]stopped")
+			ui.startStopStatus.SetText("[::b]Fucker [red]stopped")
 			// TODO it's gross that this is here, need better event handling
 			if len(ui.player.Queue) > 0 {
 				ui.player.Queue = ui.player.Queue[1:]

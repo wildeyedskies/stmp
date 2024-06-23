@@ -56,6 +56,7 @@ func main() {
 		Password:       viper.GetString("auth.password"),
 		Host:           viper.GetString("server.host"),
 		PlaintextAuth:  viper.GetBool("auth.plaintext"),
+		Scrobble:       viper.GetBool("server.scrobble"),
 		Logger:         logger,
 		directoryCache: make(map[string]SubsonicResponse),
 	}
@@ -67,7 +68,7 @@ func main() {
 	}
 	playlistResponse, err := connection.GetPlaylists()
 	if err != nil {
-		fmt.Printf("Error fetching indexes from server: %s\n", err)
+		fmt.Printf("Error fetching playlists from server: %s\n", err)
 		os.Exit(1)
 	}
 

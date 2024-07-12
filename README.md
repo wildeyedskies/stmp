@@ -31,8 +31,8 @@ On MacOS, if you installed mpv with brew you'll need to set the following paths:
 export C_INCLUDE_PATH=/opt/homebrew/include:$C_INCLUDE_PATH
 export LIBRARY_PATH=/opt/homebrew/lib:$LIBRARY_PATH
 ```
-#### Macports
-Alternatively, if you installed mpv with Macports, set these paths:
+#### MacPorts
+Alternatively, if you installed mpv with MacPorts, set these paths:
 ```
 export C_INCLUDE_PATH=/opt/local/include:$C_INCLUDE_PATH
 export LIBRARY_PATH=/opt/local/lib:$LIBRARY_PATH

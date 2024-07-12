@@ -41,7 +41,8 @@ export LIBRARY_PATH=/opt/local/lib:$LIBRARY_PATH
 
 stmp should compile normally with `go build`. Cgo is needed for linking the
 libmpv header.
-
+### Compiling on MacOS versions < 10.15 Catalina
+Mpv [no longer supports](https://github.com/mpv-player/mpv?tab=readme-ov-file#system-requirements) versions of MacOS older than 10.15. Users on such systems may want to build `mpv-0.36` or older, or use the [mpv-legacy](https://ports.macports.org/port/mpv-legacy/) MacPorts package.
 ## Configuration
 
 stmp looks for a config file called `stmp.toml` in either `$HOME/.config/stmp`

@@ -878,6 +878,10 @@ func InitGui(indexes *[]SubsonicIndex, playlists *[]SubsonicPlaylist, connection
 				ui.connection.Logger.Printf("InitGui: Seek %d -- %s", -10, err.Error())
 			}
 			return nil
+		case keybind("up"):
+			return tcell.NewEventKey(tcell.KeyUp, 0, tcell.ModNone)
+		case keybind("down"):
+			return tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone)
 		}
 
 		return event

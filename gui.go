@@ -9,6 +9,7 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
+	"github.com/spf13/viper"
 	"github.com/wildeyedskies/go-mpv/mpv"
 )
 
@@ -559,21 +560,20 @@ func (ui *Ui) createBrowserPage(titleFlex *tview.Flex, indexes *[]SubsonicIndex)
 
 	// going right from the artist list should focus the album/song list
 	ui.artistList.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		if event.Key() == tcell.KeyRight {
+		switch keyName(event) {
+		case keybind("right"):
 			ui.app.SetFocus(ui.entityList)
 			return nil
-		}
-		switch event.Rune() {
-		case '/':
+		case keybind("search"):
 			ui.search()
 			return nil
-		case 'n':
+		case keybind("searchNext"):
 			ui.searchNext()
 			return nil
-		case 'N':
+		case keybind("searchPrev"):
 			ui.searchPrev()
 			return nil
-		case 'r':
+		case keybind("refresh"):
 			goBackTo := ui.artistList.GetCurrentItem()
 			// REFRESH artists
 			indexResponse, err := ui.connection.GetIndexes()
@@ -630,26 +630,26 @@ func (ui *Ui) createBrowserPage(titleFlex *tview.Flex, indexes *[]SubsonicIndex)
 	})
 
 	ui.entityList.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		if event.Key() == tcell.KeyLeft {
+		if keyName(event) == keybind("left") {
 			ui.app.SetFocus(ui.artistList)
 			return nil
 		}
-		if event.Rune() == 'a' {
+		if keyName(event) == keybind("add") {
 			ui.handleAddEntityToQueue()
 			return nil
 		}
-		if event.Rune() == 'y' {
+		if keyName(event) == keybind("star") {
 			ui.handleToggleEntityStar()
 			return nil
 		}
 		// only makes sense to add to a playlist if there are playlists
-		if event.Rune() == 'A' && ui.playlistList.GetItemCount() > 0 {
+		if keyName(event) == keybind("addToPlaylist") && ui.playlistList.GetItemCount() > 0 {
 			ui.pages.ShowPage("addToPlaylist")
 			ui.app.SetFocus(ui.addToPlaylistList)
 			return nil
 		}
 		// REFRESH only the artist
-		if event.Rune() == 'r' {
+		if keyName(event) == keybind("refresh") {
 			artistIdx := ui.artistList.GetCurrentItem()
 			entity := ui.artistIdList[artistIdx]
 			//ui.logger.Printf("refreshing artist idx %d, entity %s (%s)", artistIdx, entity, ui.connection.directoryCache[entity].Directory.Name)
@@ -668,10 +668,10 @@ func (ui *Ui) createQueuePage(titleFlex *tview.Flex) *tview.Flex {
 		AddItem(titleFlex, 1, 0, false).
 		AddItem(ui.queueList, 0, 1, true)
 	ui.queueList.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		if event.Key() == tcell.KeyDelete || event.Rune() == 'd' {
+		if event.Key() == tcell.KeyDelete || keyName(event) == keybind("removeFromQueue") {
 			ui.handleDeleteFromQueue()
 			return nil
-		} else if event.Rune() == 'y' {
+		} else if keyName(event) == keybind("star") {
 			ui.handleToggleStar()
 			return nil
 		}
@@ -720,30 +720,30 @@ func (ui *Ui) createPlaylistPage(titleFlex *tview.Flex) (*tview.Flex, tview.Prim
 	})
 
 	ui.playlistList.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		if event.Key() == tcell.KeyRight {
+		if keyName(event) == keybind("right") {
 			ui.app.SetFocus(ui.selectedPlaylist)
 			return nil
 		}
-		if event.Rune() == 'a' {
+		if keyName(event) == keybind("add") {
 			ui.handleAddPlaylistToQueue()
 			return nil
 		}
-		if event.Rune() == 'n' {
+		if keyName(event) == keybind("newPlaylist") {
 			playlistFlex.AddItem(ui.newPlaylistInput, 0, 1, true)
 			ui.app.SetFocus(ui.newPlaylistInput)
 		}
-		if event.Rune() == 'd' {
+		if keyName(event) == keybind("deletePlaylist") {
 			ui.pages.ShowPage("deletePlaylist")
 		}
 		return event
 	})
 
 	ui.selectedPlaylist.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		if event.Key() == tcell.KeyLeft {
+		if keyName(event) == keybind("left") {
 			ui.app.SetFocus(ui.playlistList)
 			return nil
 		}
-		if event.Rune() == 'a' {
+		if keyName(event) == keybind("add") {
 			ui.handleAddPlaylistSongToQueue()
 			return nil
 		}
@@ -817,33 +817,33 @@ func InitGui(indexes *[]SubsonicIndex, playlists *[]SubsonicPlaylist, connection
 			return event
 		}
 
-		switch event.Rune() {
-		case '1':
+		switch keyName(event) {
+		case keybind("pageBrowser"):
 			ui.pages.SwitchToPage("browser")
 			ui.currentPage.SetText("Browser")
-		case '2':
+		case keybind("pageQueue"):
 			ui.pages.SwitchToPage("queue")
 			ui.currentPage.SetText("Queue")
-		case '3':
+		case keybind("pagePlaylists"):
 			ui.pages.SwitchToPage("playlists")
 			ui.currentPage.SetText("Playlists")
-		case '4':
+		case keybind("pageLog"):
 			ui.pages.SwitchToPage("log")
 			ui.currentPage.SetText("Log")
-		case 'q':
+		case keybind("quit"):
 			ui.player.EventChannel <- nil
 			ui.player.Instance.TerminateDestroy()
 			ui.app.Stop()
-		case 's':
+		case keybind("addRandomSongs"):
 			ui.handleAddRandomSongs()
-		case 'D':
+		case keybind("clearQueue"):
 			ui.player.Queue = make([]QueueItem, 0)
 			err := ui.player.Stop()
 			if err != nil {
 				ui.connection.Logger.Printf("InitGui: Stop -- %s", err.Error())
 			}
 			updateQueueList(ui.player, ui.queueList, ui.starIdList)
-		case 'p':
+		case keybind("playPause"):
 			status, err := ui.player.Pause()
 			if err != nil {
 				ui.connection.Logger.Printf("InitGui: Pause -- %s", err.Error())
@@ -858,28 +858,30 @@ func InitGui(indexes *[]SubsonicIndex, playlists *[]SubsonicPlaylist, connection
 				ui.startStopStatus.SetText("[::b]stmp: [yellow]paused")
 			}
 			return nil
-		case '-':
+		case keybind("volumeDown"):
 			if err := ui.player.AdjustVolume(-5); err != nil {
 				ui.connection.Logger.Printf("InitGui: AdjustVolume %d -- %s", -5, err.Error())
 			}
 			return nil
-
-		case '=':
+		case keybind("volumeUp"):
 			if err := ui.player.AdjustVolume(5); err != nil {
 				ui.connection.Logger.Printf("InitGui: AdjustVolume %d -- %s", 5, err.Error())
 			}
 			return nil
-
-		case '.':
+		case keybind("seekForward"):
 			if err := ui.player.Seek(10); err != nil {
 				ui.connection.Logger.Printf("InitGui: Seek %d -- %s", 10, err.Error())
 			}
 			return nil
-		case ',':
+		case keybind("seekBack"):
 			if err := ui.player.Seek(-10); err != nil {
 				ui.connection.Logger.Printf("InitGui: Seek %d -- %s", -10, err.Error())
 			}
 			return nil
+		case keybind("up"):
+			return tcell.NewEventKey(tcell.KeyUp, 0, tcell.ModNone)
+		case keybind("down"):
+			return tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone)
 		}
 
 		return event
@@ -1065,3 +1067,16 @@ func (e SubsonicEntity) getSongTitle() string {
 
 	return e.Path[lastSlash+1 : len(e.Path)]
 }
+
+func keyName(event *tcell.EventKey) string {
+	if (event.Key() == tcell.KeyRune) {
+		return string(event.Rune())
+	} else {
+		return event.Name()
+	}
+}
+
+func keybind(path string) string {
+	return viper.GetString("keys." + path)
+}
+
